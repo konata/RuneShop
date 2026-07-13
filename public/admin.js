@@ -306,8 +306,9 @@ async function logout() {
   }
 }
 
-function config() {
-  const sample = `model = "gpt-5.6-sol"
+function configs() {
+  return {
+    codex: `model = "gpt-5.6-sol"
 model_provider = "runeshop"
 
 [model_providers.runeshop]
@@ -315,9 +316,20 @@ name = "RuneShop"
 base_url = "${location.origin}/v1"
 env_key = "PWD"
 wire_api = "responses"
-supports_websockets = false`
-  ui["client-config"].textContent = sample
-  return sample
+supports_websockets = false`,
+    opencode: JSON.stringify({
+      $schema: "https://opencode.ai/config.json",
+      model: "runeshop/gpt-5.6-sol",
+      provider: {
+        runeshop: {
+          npm: "@ai-sdk/openai",
+          name: "RuneShop",
+          options: { baseURL: `${location.origin}/v1`, apiKey: "{env:PWD}" },
+          models: { "gpt-5.6-sol": { name: "GPT-5.6 Sol" } }
+        }
+      }
+    }, null, 2)
+  }
 }
 
 async function copy(value, message) {
@@ -367,7 +379,10 @@ function offline(error) {
 
 ui.update.addEventListener("click", showUpdate)
 ui["confirm-update"].addEventListener("click", startUpdate)
-ui["copy-config"].addEventListener("click", () => copy(config(), "Configuration copied"))
+for (const [provider, sample] of Object.entries(configs())) {
+  ui[`${provider}-config`].textContent = sample
+  ui[`copy-${provider}`].addEventListener("click", () => copy(sample, `${provider === "codex" ? "Codex" : "OpenCode"} configuration copied`))
+}
 ui["choose-auth"].addEventListener("click", () => ui["auth-file"].click())
 ui["auth-file"].addEventListener("change", confirmAuth)
 ui["confirm-auth"].addEventListener("click", importAuth)
@@ -379,7 +394,6 @@ ui.logout.addEventListener("click", logout)
 
 async function boot() {
   csrf = (await request("/admin/api/session")).csrf
-  config()
   await load()
   setInterval(load, 60_000)
 }

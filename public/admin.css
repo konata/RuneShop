@@ -266,7 +266,9 @@ dialog:focus-visible {
   gap: 16px;
   padding: 7px 20px;
 }
-.code-heading > span { color: var(--muted); font-size: 12px; }
+.code-heading > div { display: grid; gap: 2px; }
+.code-heading strong { font-size: 13px; }
+.code-heading span { color: var(--muted); font-size: 12px; }
 
 .credential-body {
   display: flex;

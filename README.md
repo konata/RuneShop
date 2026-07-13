@@ -63,6 +63,30 @@ env_key = "PWD"
 supports_websockets = false
 ```
 
+## OpenCode
+
+Add this provider to `~/.config/opencode/opencode.json`:
+
+```json
+{
+  "$schema": "https://opencode.ai/config.json",
+  "model": "runeshop/gpt-5.6-sol",
+  "provider": {
+    "runeshop": {
+      "npm": "@ai-sdk/openai",
+      "name": "RuneShop",
+      "options": {
+        "baseURL": "http://<HOST>:<PORT>/v1",
+        "apiKey": "{env:PWD}"
+      },
+      "models": {
+        "gpt-5.6-sol": { "name": "GPT-5.6 Sol" }
+      }
+    }
+  }
+}
+```
+
 ## Pi
 
 Add an `openai-responses` provider to `~/.pi/agent/models.json`:
