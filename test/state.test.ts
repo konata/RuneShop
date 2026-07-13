@@ -37,28 +37,33 @@ test("squashes consecutive activity while retaining raw events", async () => {
   const directory = await mkdtemp(join(tmpdir(), "runeshop-history-"));
   const state = new RequestState(directory);
   try {
-    const record = (time: number, status: number, detail?: string) => state.record({
+    const record = (time: number, status: number, detail?: string, effort = "high", fast = false) => state.record({
       time: new Date(time * 1000).toISOString(), path: "/responses", client: "/root/project",
-      model: "gpt-5.6-sol", status, duration: time, ...(detail ? { detail } : {})
+      model: "gpt-5.6-sol", effort, ...(fast ? { fast: true } : {}), status, duration: time, ...(detail ? { detail } : {})
     });
     await record(1, 200);
     await record(2, 200);
     await record(3, 400, "first error");
     await record(4, 400, "first error");
     await record(5, 400, "second error");
-    await record(6, 200);
+    await record(6, 200, undefined, "xhigh");
+    await record(7, 200, undefined, "xhigh", true);
 
     const recent = (await state.snapshot()).activity;
     expect(recent.map(({ status, detail, count }) => ({ status, detail, count }))).toEqual([
+      { status: 200, detail: undefined, count: 1 },
       { status: 200, detail: undefined, count: 1 },
       { status: 400, detail: "second error", count: 1 },
       { status: 400, detail: "first error", count: 2 },
       { status: 200, detail: undefined, count: 2 }
     ]);
-    expect(recent[2].time).toBe(new Date(4_000).toISOString());
-    expect(recent[3].time).toBe(new Date(2_000).toISOString());
+    expect(recent[0]).toMatchObject({ effort: "xhigh", fast: true });
+    expect(recent[1].effort).toBe("xhigh");
+    expect(recent[1].fast).toBeUndefined();
+    expect(recent[3].time).toBe(new Date(4_000).toISOString());
+    expect(recent[4].time).toBe(new Date(2_000).toISOString());
     const database = new Database(join(directory, "state.sqlite"), { readonly: true });
-    expect(database.query("SELECT count(*) AS count FROM requests").get()).toEqual({ count: 6 });
+    expect(database.query("SELECT count(*) AS count FROM requests").get()).toEqual({ count: 7 });
     database.close();
   } finally {
     await rm(directory, { recursive: true, force: true });

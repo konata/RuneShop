@@ -64,6 +64,7 @@ test("protects the admin page with a cookie session and CSRF token", async () =>
     expect(javascript).not.toContain("RUNESHOP_API_KEY");
     expect(javascript).toContain("client.textContent = clientName(clientId)");
     expect(javascript).toContain("client.title = clientId");
+    expect(javascript).toContain('event.fast ? "-⚡️" : ""');
     expect(javascript).toContain('activityCard.classList.toggle("show-project")');
     expect(javascript).toContain('event.count > 1 ? ` × ${event.count}` : ""');
     expect(javascript).toContain("window.window_seconds / 3600");

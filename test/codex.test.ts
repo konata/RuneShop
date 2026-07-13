@@ -128,7 +128,7 @@ test.serial("propagates downstream cancellation upstream", async () => {
   const request = new Request("http://localhost/v1/responses", {
     method: "POST",
     headers: { "x-codex-window-id": "window" },
-    body: JSON.stringify({ model: "gpt-5.5", input: [], stream: true })
+    body: JSON.stringify({ model: "gpt-5.5", input: [], reasoning: { effort: "xhigh" }, service_tier: "priority", stream: true })
   });
 
   try {
@@ -140,6 +140,8 @@ test.serial("propagates downstream cancellation upstream", async () => {
     expect(snapshot.month.requests).toBe(1);
     expect(snapshot.activity[0].client).toBe("/Users/natsuki/Lang/RuneShop");
     expect(snapshot.activity[0].model).toBe("gpt-5.5");
+    expect(snapshot.activity[0].effort).toBe("xhigh");
+    expect(snapshot.activity[0].fast).toBe(true);
   } finally {
     globalThis.fetch = original;
     await rm(directory, { recursive: true, force: true });

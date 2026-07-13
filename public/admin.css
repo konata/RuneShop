@@ -352,8 +352,8 @@ dialog:focus-visible {
   .page-heading h1 { font-size: 30px; }
   .usage-panel { padding: 28px; }
   .usage-value { font-size: 60px; }
-  .activity li { grid-template-columns: 16px minmax(0, 1fr) 110px 72px; }
-  .activity-card.show-project .activity li { grid-template-columns: 16px minmax(0, 1fr) 150px 110px 72px; }
+  .activity li { grid-template-columns: 16px minmax(0, 1fr) 180px 72px; }
+  .activity-card.show-project .activity li { grid-template-columns: 16px minmax(0, 1fr) 150px 180px 72px; }
   .activity .model { display: block; }
 }
 

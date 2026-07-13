@@ -11,6 +11,8 @@ type RequestEvent = {
   path: string;
   client?: string;
   model?: string;
+  effort?: string;
+  fast?: boolean;
   status: number;
   duration: number;
   detail?: string;
@@ -120,6 +122,7 @@ function squash(events: RequestEvent[]) {
     const previous = activity.at(-1);
     const failed = event.status < 200 || event.status >= 400;
     if (previous && previous.status === event.status && previous.model === event.model && previous.client === event.client
+      && previous.effort === event.effort && Boolean(previous.fast) === Boolean(event.fast)
       && (!failed || previous.detail === event.detail)) {
       previous.count++;
       continue;

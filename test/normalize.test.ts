@@ -9,20 +9,23 @@ test("preserves native Codex responses requests", () => {
     store: false,
     max_output_tokens: 100000,
     safety_identifier: "user",
-    reasoning: { effort: "high", summary: "auto" }
+    reasoning: { effort: "high", summary: "auto" },
+    service_tier: "priority"
   });
 
   expect(normalize(body, new Headers({ "x-codex-window-id": "window" }))).toEqual({
     body,
     stream: true,
     model: "gpt-5.5",
+    effort: "high",
+    fast: true,
     native: true,
     changes: []
   });
 });
 
 test("normalizes generic Responses clients for Codex upstream", () => {
-  const { body, stream, changes, native } = normalize(JSON.stringify({
+  const { body, stream, changes, native, effort, fast } = normalize(JSON.stringify({
     model: "gpt-5.5",
     input: [{ role: "user", content: [{ type: "input_text", text: "hi" }] }],
     stream: true,
@@ -30,11 +33,14 @@ test("normalizes generic Responses clients for Codex upstream", () => {
     safety_identifier: "user",
     stream_options: { include_obfuscation: false },
     reasoning: { effort: "high", summary: "auto" },
+    service_tier: "priority",
     include: ["reasoning.encrypted_content"]
   }));
 
   expect(stream).toBe(true);
   expect(native).toBe(false);
+  expect(effort).toBe("high");
+  expect(fast).toBe(true);
   expect(changes).toContain("set:store");
   expect(changes).toContain("set:parallel_tool_calls");
   expect(changes).toContain("drop:max_output_tokens");
@@ -47,6 +53,7 @@ test("normalizes generic Responses clients for Codex upstream", () => {
     stream: true,
     store: false,
     reasoning: { effort: "high" },
+    service_tier: "priority",
     include: ["reasoning.encrypted_content"],
     parallel_tool_calls: true
   });

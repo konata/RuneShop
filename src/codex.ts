@@ -17,6 +17,11 @@ function object(value: unknown): Payload | null {
   return value && typeof value === "object" && !Array.isArray(value) ? value as Payload : null;
 }
 
+function mode(payload: Payload): { effort?: string; fast?: boolean } {
+  const effort = object(payload.reasoning)?.effort;
+  return { ...(typeof effort === "string" ? { effort } : {}), ...(payload.service_tier === "priority" ? { fast: true } : {}) };
+}
+
 function tool(value: unknown, path: string, changes: string[]) {
   const source = object(value);
   const type = typeof source?.type === "string" ? aliases.get(source.type) : undefined;
@@ -66,7 +71,7 @@ export function normalize(body: string, headers = new Headers()) {
   const payload = JSON.parse(body) as Payload;
   const stream = payload.stream === true;
   const model = typeof payload.model === "string" ? payload.model : undefined;
-  if (native(headers)) return { body, stream, model, native: true, changes: [] };
+  if (native(headers)) return { body, stream, model, ...mode(payload), native: true, changes: [] };
   const changes: string[] = [];
   const normalized: Payload = {};
   for (const [field, value] of Object.entries(payload)) {
@@ -79,7 +84,7 @@ export function normalize(body: string, headers = new Headers()) {
     if (JSON.stringify(payload[field]) !== JSON.stringify(value)) changes.push(`${payload[field] === undefined ? "set" : "rewrite"}:${field}`);
     normalized[field] = value;
   }
-  return { body: changes.length ? JSON.stringify(normalized) : body, stream, model, native: false, changes };
+  return { body: changes.length ? JSON.stringify(normalized) : body, stream, model, ...mode(normalized), native: false, changes };
 }
 
 type RequestBody = ReturnType<typeof normalize>;
@@ -131,10 +136,11 @@ function detail(text: string) {
   } catch { return text.slice(0, 500); }
 }
 
-type Fields = { path: string; client?: string; model?: string; duration_ms: number };
+type Fields = { path: string; client?: string; model?: string; effort?: string; fast?: boolean; duration_ms: number };
 function track(state: RequestState | undefined, fields: Fields, status: number, message?: unknown) {
   void state?.record({
-    time: new Date().toISOString(), path: fields.path, client: fields.client, model: fields.model,
+    time: new Date().toISOString(), path: fields.path, client: fields.client, model: fields.model, effort: fields.effort,
+    ...(fields.fast ? { fast: true } : {}),
     status, duration: fields.duration_ms, ...(message ? { detail: String(message).slice(0, 240) } : {})
   });
 }
@@ -150,10 +156,10 @@ async function forward(request: Request, config: Config, state: RequestState | u
       method: "POST", headers: upstreamHeaders(request, token, payload.stream, payload.native), body: payload.body, signal: request.signal
     });
   } catch (error) {
-    track(state, { path, client, model: payload.model, duration_ms: elapsed(start) }, 0, (error as Error).message);
+    track(state, { path, client, model: payload.model, effort: payload.effort, fast: payload.fast, duration_ms: elapsed(start) }, 0, (error as Error).message);
     throw error;
   }
-  const fields = { trace, path, client, model: payload.model, stream: payload.stream, duration_ms: elapsed(start) };
+  const fields = { trace, path, client, model: payload.model, effort: payload.effort, fast: payload.fast, stream: payload.stream, duration_ms: elapsed(start) };
   if (!response.ok) {
     const text = await response.text();
     const message = detail(text);

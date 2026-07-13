@@ -167,7 +167,8 @@ function activity(events) {
     client.textContent = clientName(clientId)
     client.title = clientId
     model.className = "model"
-    model.textContent = event.model || "--"
+    const effort = event.effort ? `/${event.effort}` : ""
+    model.textContent = `${event.model || "--"}${effort}${event.fast ? "-⚡️" : ""}`
     model.title = model.textContent
     time.dateTime = event.time
     time.textContent = new Date(event.time).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
