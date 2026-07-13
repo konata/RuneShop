@@ -39,7 +39,7 @@
             <div>
               <span id="usage-title" class="eyebrow inverse">Usage limits</span>
               <p id="primary-percent" class="usage-value mono">--%</p>
-              <p id="primary-reset" class="usage-caption">5-hour window</p>
+              <p id="primary-reset" class="usage-caption">Usage unavailable</p>
             </div>
             <span id="plan" class="plan mono">--</span>
           </div>
@@ -48,13 +48,13 @@
               id="primary-progress"
               class="progress"
               role="progressbar"
-              aria-label="5-hour usage"
+              aria-label="Usage unavailable"
               aria-valuemin="0"
               aria-valuemax="100"
               aria-valuenow="0"
             ><span></span></div>
             <dl class="usage-facts">
-              <div><dt>Weekly</dt><dd id="weekly" class="mono">--%</dd></div>
+              <div><dt id="secondary-label">Weekly</dt><dd id="secondary-percent" class="mono">--%</dd></div>
               <div><dt>Lifetime</dt><dd id="lifetime" class="mono">--</dd></div>
               <div><dt>Reset credits</dt><dd id="credits" class="mono">--</dd></div>
             </dl>

@@ -36,6 +36,13 @@ function remaining(epoch) {
   return `resets in ${minutes}m`
 }
 
+function windowName(window, detailed = false) {
+  const hours = window.window_seconds / 3600
+  const amount = Number.isInteger(hours) ? hours : Math.round(hours * 10) / 10
+  const label = hours >= 24 ? Math.round(hours / 24) === 7 ? "Weekly" : `${Math.round(hours / 24)}-day` : `${amount}-hour`
+  return detailed ? `${label} window` : label
+}
+
 function uptime(seconds) {
   const days = Math.floor(seconds / 86400)
   const hours = Math.floor((seconds % 86400) / 3600)
@@ -56,15 +63,19 @@ function status(snapshot) {
 }
 
 function usage(account) {
-  const primary = account.primary
-  const secondary = account.secondary
-  const used = Math.max(0, Math.min(100, primary?.used_percent ?? 0))
+  const windows = [account.primary, account.secondary]
+    .filter((window) => Number.isFinite(window?.window_seconds) && window.window_seconds > 0 && Number.isFinite(window.used_percent))
+    .sort((left, right) => left.window_seconds - right.window_seconds)
+  const [primary, secondary] = windows
+  const used = Math.max(0, Math.min(100, Number(primary?.used_percent) || 0))
   ui.plan.textContent = account.plan
-  ui["primary-percent"].textContent = primary ? `${used}%` : "--%"
-  ui["primary-reset"].textContent = primary ? `5-hour window · ${remaining(primary.resets_at)}` : "Usage unavailable"
+  ui["primary-percent"].textContent = primary ? `${used}%` : "Unlimited"
+  ui["primary-reset"].textContent = primary ? `${windowName(primary, true)} · ${remaining(primary.resets_at)}` : "No usage limit"
+  ui["primary-progress"].setAttribute("aria-label", primary ? `${windowName(primary)} usage` : "Unlimited")
   ui["primary-progress"].setAttribute("aria-valuenow", String(used))
   ui["primary-progress"].querySelector("span").style.width = `${used}%`
-  ui.weekly.textContent = secondary ? `${secondary.used_percent}%` : "--%"
+  ui["secondary-label"].textContent = secondary ? windowName(secondary) : primary?.window_seconds >= 86400 ? "5-hour" : "Weekly"
+  ui["secondary-percent"].textContent = secondary ? `${secondary.used_percent}%` : "Unlimited"
   ui.lifetime.textContent = compact(account.lifetime_tokens)
   ui.credits.textContent = String(account.reset_credits)
 }
@@ -91,6 +102,12 @@ function eventLabel(event) {
   if (!event.status) return "Connection failed"
   if (event.status >= 400) return `Upstream returned ${event.status}`
   return event.path.endsWith("compact") ? "Context compacted" : "Request completed"
+}
+
+function clientName(value) {
+  const client = typeof value === "string" ? value.trim() : ""
+  if (!client) return "unknown"
+  return client.split(/[\\/]+/).filter(Boolean).at(-1) || client
 }
 
 function eventIcon(event) {
@@ -144,9 +161,9 @@ function activity(events) {
     label.className = "event"
     label.textContent = eventLabel(event)
     label.title = label.textContent
-    const clientId = event.client || "unknown"
+    const clientId = typeof event.client === "string" && event.client.trim() ? event.client.trim() : "unknown"
     client.className = "client"
-    client.textContent = clientId.length > 15 ? `${clientId.slice(0, 14)}…` : clientId
+    client.textContent = clientName(clientId)
     client.title = clientId
     model.className = "model"
     model.textContent = event.model || "--"

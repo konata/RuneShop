@@ -55,7 +55,12 @@ test("protects the admin page with a cookie session and CSRF token", async () =>
     const javascript = await script.text();
     expect(javascript).toContain('env_key = "PWD"');
     expect(javascript).not.toContain("RUNESHOP_API_KEY");
-    expect(javascript).toContain("clientId.slice(0, 14)");
+    expect(javascript).toContain("client.textContent = clientName(clientId)");
+    expect(javascript).toContain("client.title = clientId");
+    expect(javascript).toContain("window.window_seconds / 3600");
+    expect(javascript).toContain('ui["secondary-label"].textContent');
+    expect(javascript).toContain('primary ? `${used}%` : "Unlimited"');
+    expect(javascript).toContain('secondary ? `${secondary.used_percent}%` : "Unlimited"');
     expect(javascript).not.toContain("importable");
     expect(javascript).toContain("if (loading) return");
     expect(javascript).toContain('request("/admin/api/status").then(status).catch(offline)');

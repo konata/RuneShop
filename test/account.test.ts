@@ -13,8 +13,8 @@ test("normalizes account usage without exposing identity", () => {
       email: "private@example.com",
       plan_type: "pro",
       rate_limit: {
-        primary_window: { used_percent: 5, limit_window_seconds: 18_000, reset_at: 1_800_000_000 },
-        secondary_window: { used_percent: 12, limit_window_seconds: 604_800, reset_at: 1_800_100_000 }
+        primary_window: { used_percent: 12, limit_window_seconds: 604_800, reset_at: 1_800_100_000 },
+        secondary_window: { used_percent: 5, limit_window_seconds: 18_000, reset_at: 1_800_000_000 }
       },
       rate_limit_reset_credits: { available_count: 1 }
     },
@@ -23,12 +23,27 @@ test("normalizes account usage without exposing identity", () => {
 
   expect(account.plan).toBe("pro");
   expect(account.primary?.used_percent).toBe(5);
+  expect(account.primary?.window_seconds).toBe(18_000);
   expect(account.secondary?.window_seconds).toBe(604_800);
   expect(account.reset_credits).toBe(1);
   expect(account.lifetime_tokens).toBe(123_456);
   expect(account.total_threads).toBe(42);
   expect(JSON.stringify(account)).not.toContain("private@example.com");
   expect(JSON.stringify(account)).not.toContain('"account_id"');
+});
+
+test("keeps a weekly window when shorter usage is unavailable", () => {
+  const account = normalizeAccount({
+    plan_type: "pro",
+    rate_limit: {
+      primary_window: { used_percent: 5, limit_window_seconds: 604_800, reset_at: 1_800_100_000 },
+      secondary_window: null
+    }
+  });
+
+  expect(account.primary?.window_seconds).toBe(604_800);
+  expect(account.primary?.used_percent).toBe(5);
+  expect(account.secondary).toBeNull();
 });
 
 test.serial("uses only upstream account credentials for status requests", async () => {

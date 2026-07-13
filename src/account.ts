@@ -178,9 +178,12 @@ export function normalizeAccount(usage: Payload, profile: Payload = {}) {
   const limits = record(usage.rate_limit);
   const credits = record(usage.rate_limit_reset_credits);
   const stats = record(profile.stats);
+  const windows = [limit(limits.primary_window), limit(limits.secondary_window)]
+    .filter((window): window is NonNullable<ReturnType<typeof limit>> => window !== null)
+    .sort((left, right) => left.window_seconds - right.window_seconds);
   return {
     fetched_at: new Date().toISOString(), plan: typeof usage.plan_type === "string" ? usage.plan_type : "unknown",
-    primary: limit(limits.primary_window), secondary: limit(limits.secondary_window),
+    primary: windows[0] ?? null, secondary: windows[1] ?? null,
     reset_credits: number(credits.available_count) ?? 0, lifetime_tokens: number(stats.lifetime_tokens), total_threads: number(stats.total_threads)
   };
 }
