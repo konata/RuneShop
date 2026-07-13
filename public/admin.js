@@ -168,6 +168,7 @@ function activity(events) {
     client.title = clientId
     model.className = "model"
     model.textContent = event.model || "--"
+    model.title = model.textContent
     time.dateTime = event.time
     time.textContent = new Date(event.time).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
     row.append(eventIcon(event), label, client, model, time)

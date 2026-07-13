@@ -237,9 +237,10 @@ dialog:focus-visible {
 .activity li:last-child { border-bottom: 0; }
 .activity .event { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .activity .client { min-width: 0; overflow: hidden; color: var(--muted); font-family: var(--mono); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
-.activity .model { display: none; }
+.activity .model { display: none; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .activity .model,
 .activity time { color: var(--muted); font-family: var(--mono); font-size: 12px; }
+.activity time { justify-self: end; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .activity .empty { display: block; color: var(--muted); padding: 16px 20px; }
 .event-icon { width: 16px; height: 16px; fill: none; stroke: var(--green); stroke-linecap: round; stroke-linejoin: round; stroke-width: 2; }
 .event-icon.warning { stroke: var(--amber); }
@@ -348,7 +349,7 @@ dialog:focus-visible {
   .page-heading h1 { font-size: 30px; }
   .usage-panel { padding: 28px; }
   .usage-value { font-size: 60px; }
-  .activity li { grid-template-columns: 16px minmax(0, 1fr) minmax(0, 150px) auto auto; }
+  .activity li { grid-template-columns: 16px minmax(0, 1fr) 150px 110px 72px; }
   .activity .model { display: inline; }
 }
 
