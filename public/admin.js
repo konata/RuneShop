@@ -314,7 +314,7 @@ async function logout() {
 }
 
 function config() {
-  const sample = `model = "gpt-5.5"
+  const sample = `model = "gpt-5.6-sol"
 model_provider = "runeshop"
 
 [model_providers.runeshop]

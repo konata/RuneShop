@@ -106,7 +106,7 @@ export function load(directory = resolve(homedir(), ".runeshop"), args = Bun.arg
     stateDir: directory,
     upstream: "https://chatgpt.com/backend-api/codex",
     account: "https://chatgpt.com/backend-api",
-    models: ["gpt-5.5", "gpt-5.4", "gpt-5.4-mini", "gpt-5.3-codex-spark"],
+    models: ["gpt-5.6-sol", "gpt-5.5", "gpt-5.4", "gpt-5.4-mini", "gpt-5.3-codex-spark"],
     userAgent: "codex_cli_rs",
     originator: "codex_cli_rs",
     client: "app_EMoamEEZ73f0CkXaXp7hrann",

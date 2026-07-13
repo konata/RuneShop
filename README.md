@@ -50,7 +50,7 @@ After restart, open `http://<HOST>:<PORT>/admin`.
 Add this provider to `~/.codex/config.toml`:
 
 ```toml
-model = "gpt-5.5"
+model = "gpt-5.6-sol"
 model_provider = "runeshop"
 
 [model_providers.runeshop]
@@ -60,10 +60,6 @@ wire_api = "responses"
 env_key = "PWD"
 supports_websockets = false
 ```
-
-`PWD` identifies the calling project in RuneShop's local logs and activity
-view. RuneShop removes this client credential before adding its own Codex
-credential to the upstream request.
 
 ## Pi
 
@@ -78,7 +74,7 @@ Add an `openai-responses` provider to `~/.pi/agent/models.json`:
       "apiKey": "<CLIENT_ID>",
       "authHeader": true,
       "compat": { "supportsDeveloperRole": false },
-      "models": [{ "id": "gpt-5.5", "name": "GPT-5.5", "reasoning": true }]
+      "models": [{ "id": "gpt-5.6-sol", "name": "GPT-5.6 Sol", "reasoning": true }]
     }
   }
 }

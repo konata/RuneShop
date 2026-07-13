@@ -14,7 +14,7 @@ export function configuration(overrides: Partial<Config> = {}): Config {
     stateDir: "",
     upstream: "https://chatgpt.com/backend-api/codex",
     account: "https://chatgpt.com/backend-api",
-    models: ["gpt-5.5"],
+    models: ["gpt-5.6-sol"],
     userAgent: "codex_cli_rs",
     originator: "codex_cli_rs",
     client: "oauth-client",

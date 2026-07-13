@@ -13,12 +13,12 @@ const config = configuration({ idleTimeout: 300, client: "" });
 
 test("returns OpenAI model list by default", async () => {
   const payload = await models(config).json();
-  expect(payload.data[0].id).toBe("gpt-5.5");
+  expect(payload.data[0].id).toBe("gpt-5.6-sol");
 });
 
 test("returns Codex client model metadata when requested", async () => {
   const payload = await models(config, true).json();
-  expect(payload.models[0].slug).toBe("gpt-5.5");
+  expect(payload.models[0].slug).toBe("gpt-5.6-sol");
   expect(payload.models[0].supported_reasoning_levels.map((level: { effort: string }) => level.effort)).toContain("xhigh");
 });
 
