@@ -1,4 +1,4 @@
-import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
+import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { hostname } from "node:os";
 import { extname, resolve } from "node:path";
 import type { Context, Hono, MiddlewareHandler } from "hono";
@@ -49,27 +49,28 @@ async function credentialForm(context: Context) {
 
 type AdminSession = { csrf: string; expires: number };
 export class AdminSessions {
-  readonly duration = 12 * 60 * 60;
-  private readonly sessions = new Map<string, AdminSession>();
+  readonly duration = 30 * 24 * 60 * 60;
 
   constructor(private readonly passwordHash: string) {}
   get enabled() { return Boolean(this.passwordHash); }
+  private sign(claims: string) { return createHmac("sha256", this.passwordHash).update(claims).digest("base64url"); }
   async login(password: string) {
     if (!this.enabled || !await Bun.password.verify(password, this.passwordHash)) return null;
-    const now = Date.now();
-    for (const [token, session] of this.sessions) if (session.expires <= now) this.sessions.delete(token);
-    const token = randomBytes(32).toString("base64url");
-    const session = { csrf: randomBytes(24).toString("base64url"), expires: now + this.duration * 1000 };
-    this.sessions.set(token, session);
-    return { token, session };
+    const session = { csrf: randomBytes(24).toString("base64url"), expires: Date.now() + this.duration * 1000 };
+    const claims = Buffer.from(JSON.stringify(session)).toString("base64url");
+    return { token: `${claims}.${this.sign(claims)}`, session };
   }
   find(token?: string) {
-    const session = token ? this.sessions.get(token) : undefined;
-    if (session && session.expires > Date.now()) return session;
-    if (token) this.sessions.delete(token);
-    return null;
+    if (!this.enabled || !token) return null;
+    const [claims, signature, extra] = token.split(".");
+    if (!claims || !signature || extra) return null;
+    const expected = this.sign(claims);
+    if (signature.length !== expected.length || !timingSafeEqual(Buffer.from(signature), Buffer.from(expected))) return null;
+    try {
+      const session = JSON.parse(Buffer.from(claims, "base64url").toString()) as AdminSession;
+      return typeof session.csrf === "string" && typeof session.expires === "number" && session.expires > Date.now() ? session : null;
+    } catch { return null; }
   }
-  logout(token?: string) { if (token) this.sessions.delete(token); }
 }
 
 function secure(context: Context) {
@@ -116,7 +117,6 @@ export function mountAdmin(app: Hono, config: Config, state: RequestState) {
   app.get("/admin/api/session", (context) => json({ csrf: active(context)!.csrf }));
   app.post("/admin/api/session/logout", (context) => {
     if (!confirmed(context)) return failure("invalid confirmation token", 403);
-    sessions.logout(getCookie(context, cookie));
     deleteCookie(context, cookie, { path: "/admin", secure: secure(context) });
     return sessionReply(context);
   });

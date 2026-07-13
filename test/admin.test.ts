@@ -42,6 +42,7 @@ test("protects the admin page with a cookie session and CSRF token", async () =>
     expect(setCookie).toContain("HttpOnly");
     expect(setCookie).toContain("SameSite=Strict");
     expect(setCookie).toContain("Path=/admin");
+    expect(setCookie).toContain("Max-Age=2592000");
 
     const page = await app.request("http://localhost/admin", { headers: { cookie } });
     expect(page.status).toBe(200);
@@ -87,7 +88,8 @@ test("protects the admin page with a cookie session and CSRF token", async () =>
       headers: { cookie, "x-csrf-token": csrf }
     });
     expect(logout.status).toBe(200);
-    expect((await app.request("http://localhost/admin", { headers: { cookie } })).status).toBe(302);
+    expect(logout.headers.get("set-cookie")).toContain("Max-Age=0");
+    expect((await app.request("http://localhost/admin")).status).toBe(302);
   } finally {
     await rm(directory, { recursive: true, force: true });
   }
