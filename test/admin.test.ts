@@ -49,6 +49,7 @@ test("protects the admin page with a cookie session and CSRF token", async () =>
     expect(html).toContain("<title>RuneShop</title>");
     expect(html).toContain('id="codex-config"');
     expect(html).toContain('id="opencode-config"');
+    expect(html).toContain('id="pi-config"');
     expect(html).not.toContain('id="client-shell"');
     expect(html.indexOf('class="card activity-card"')).toBeGreaterThan(html.indexOf('class="card setup-card"'));
 
@@ -57,6 +58,7 @@ test("protects the admin page with a cookie session and CSRF token", async () =>
     const javascript = await script.text();
     expect(javascript).toContain('env_key = "PWD"');
     expect(javascript).toContain('apiKey: "{env:PWD}"');
+    expect(javascript).toContain('apiKey: "$PWD"');
     expect(javascript).toContain('npm: "@ai-sdk/openai"');
     expect(javascript).not.toContain("RUNESHOP_API_KEY");
     expect(javascript).toContain("client.textContent = clientName(clientId)");

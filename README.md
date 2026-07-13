@@ -97,7 +97,7 @@ Add an `openai-responses` provider to `~/.pi/agent/models.json`:
     "runeshop": {
       "baseUrl": "http://<HOST>:<PORT>/v1",
       "api": "openai-responses",
-      "apiKey": "<CLIENT_ID>",
+      "apiKey": "$PWD",
       "authHeader": true,
       "compat": { "supportsDeveloperRole": false },
       "models": [{ "id": "gpt-5.6-sol", "name": "GPT-5.6 Sol", "reasoning": true }]

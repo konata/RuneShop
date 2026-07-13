@@ -328,6 +328,18 @@ supports_websockets = false`,
           models: { "gpt-5.6-sol": { name: "GPT-5.6 Sol" } }
         }
       }
+    }, null, 2),
+    pi: JSON.stringify({
+      providers: {
+        runeshop: {
+          baseUrl: `${location.origin}/v1`,
+          api: "openai-responses",
+          apiKey: "$PWD",
+          authHeader: true,
+          compat: { supportsDeveloperRole: false },
+          models: [{ id: "gpt-5.6-sol", name: "GPT-5.6 Sol", reasoning: true }]
+        }
+      }
     }, null, 2)
   }
 }
@@ -381,7 +393,8 @@ ui.update.addEventListener("click", showUpdate)
 ui["confirm-update"].addEventListener("click", startUpdate)
 for (const [provider, sample] of Object.entries(configs())) {
   ui[`${provider}-config`].textContent = sample
-  ui[`copy-${provider}`].addEventListener("click", () => copy(sample, `${provider === "codex" ? "Codex" : "OpenCode"} configuration copied`))
+  const name = provider === "codex" ? "Codex" : provider === "opencode" ? "OpenCode" : "Pi"
+  ui[`copy-${provider}`].addEventListener("click", () => copy(sample, `${name} configuration copied`))
 }
 ui["choose-auth"].addEventListener("click", () => ui["auth-file"].click())
 ui["auth-file"].addEventListener("change", confirmAuth)
