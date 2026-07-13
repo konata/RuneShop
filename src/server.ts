@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { HTTPException } from "hono/http-exception";
 import { mountAdmin, mountBootstrap } from "./admin";
 import { compact, models, responses } from "./codex";
-import { configure, elapsed, emit, load, RelayState, type Config } from "./state";
+import { configure, elapsed, emit, load, RequestState, type Config } from "./state";
 
 const host = "0.0.0.0";
 const idleTimeout = 240;
@@ -14,7 +14,7 @@ function json(body: unknown, status = 200) {
   return Response.json(body, { status, headers: { "cache-control": "no-store", "x-content-type-options": "nosniff" } });
 }
 
-function problem(status: number, message: string, code = "proxy_error") {
+function problem(status: number, message: string, code = "request_error") {
   return json({ error: { message, type: status >= 500 ? "server_error" : "invalid_request_error", code } }, status);
 }
 
@@ -22,8 +22,8 @@ function client(request: Request) {
   return (request.headers.get("authorization")?.replace(/^Bearer\s+/i, "") || request.headers.get("x-api-key") || "").trim();
 }
 
-function mountRelay(config: Config) {
-  const state = new RelayState(config.stateDir);
+function mountConfigured(config: Config) {
+  const state = new RequestState(config.stateDir);
   app.use("*", async (context, next) => {
     const start = performance.now();
     const { method, path } = context.req;
@@ -47,7 +47,7 @@ function mountRelay(config: Config) {
   app.post("/v1/responses/compact", (context) => compact(context.req.raw, config, state, client(context.req.raw)));
 }
 
-config.configured ? mountRelay(config) : mountBootstrap(app, config);
+config.configured ? mountConfigured(config) : mountBootstrap(app, config);
 app.notFound(() => problem(404, "not found", "not_found"));
 app.onError((error) => error instanceof HTTPException ? error.getResponse() : problem(500, error.message, "internal_error"));
 Bun.serve({ hostname: host, port: config.port, idleTimeout, fetch: app.fetch });

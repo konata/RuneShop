@@ -5,7 +5,7 @@ import { dirname, join, resolve } from "node:path";
 
 type LogLevel = "debug" | "info" | "warn" | "error" | "silent";
 type Settings = { version: 1; port: number; admin_password_hash: string };
-type RelayEvent = {
+type RequestEvent = {
   time: string;
   path: string;
   client?: string;
@@ -15,7 +15,7 @@ type RelayEvent = {
   detail?: string;
 };
 type Period = { key: string; requests: number; failures: number };
-type Store = { day: Period; month: Period; activity: RelayEvent[] };
+type Store = { day: Period; month: Period; activity: RequestEvent[] };
 
 export type Config = {
   configured: boolean;
@@ -113,7 +113,7 @@ function summary({ key: period, requests, failures }: Period) {
   return { period, requests, failures, success_rate: requests ? Math.round((requests - failures) / requests * 1000) / 10 : 100 };
 }
 
-export class RelayState {
+export class RequestState {
   readonly started: Date;
   private readonly file: string;
   private readonly ready: Promise<void>;
@@ -134,7 +134,7 @@ export class RelayState {
     if (this.store.month.key !== current.month) this.store.month = period(current.month);
   }
 
-  async record(event: RelayEvent) {
+  async record(event: RequestEvent) {
     await this.ready;
     this.rotate();
     const failed = event.status < 200 || event.status >= 400;

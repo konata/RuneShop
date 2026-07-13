@@ -1,5 +1,5 @@
 import { authorization, fresh, upstream, type CodexToken } from "./account";
-import { elapsed, emit, type Config, type RelayState } from "./state";
+import { elapsed, emit, type Config, type RequestState } from "./state";
 
 type Payload = Record<string, unknown>;
 const accepted = new Set([
@@ -88,7 +88,7 @@ const requestNames = new Set([
   "session_id", "thread-id", "traceparent", "tracestate"
 ]);
 const requestPrefixes = ["x-codex-", "x-openai-", "x-responsesapi-"];
-const secretNames = new Set(["authorization", "cookie", "proxy-authorization", "x-api-key"]);
+const secretNames = new Set(["authorization", "cookie", "x-api-key"]);
 const secretSuffixes = ["-authorization", "-api-key", "-access-token", "-refresh-token", "-session-token"];
 const responseNames = new Set(["cache-control", "cf-ray", "content-type", "retry-after", "x-request-id"]);
 const responsePrefixes = ["openai-", "x-codex-", "x-models-", "x-openai-", "x-ratelimit-", "x-reasoning-"];
@@ -132,14 +132,14 @@ function detail(text: string) {
 }
 
 type Fields = { path: string; client?: string; model?: string; duration_ms: number };
-function track(state: RelayState | undefined, fields: Fields, status: number, message?: unknown) {
+function track(state: RequestState | undefined, fields: Fields, status: number, message?: unknown) {
   void state?.record({
     time: new Date().toISOString(), path: fields.path, client: fields.client, model: fields.model,
     status, duration: fields.duration_ms, ...(message ? { detail: String(message).slice(0, 240) } : {})
   });
 }
 
-async function forward(request: Request, config: Config, state: RelayState | undefined, client: string | undefined, path: string, payload: RequestBody) {
+async function forward(request: Request, config: Config, state: RequestState | undefined, client: string | undefined, path: string, payload: RequestBody) {
   const start = performance.now();
   const trace = request.headers.get("x-client-request-id") || crypto.randomUUID();
   emit("debug", "upstream_request", { trace, path, model: payload.model, stream: payload.stream, native: payload.native, changes: payload.changes });
@@ -169,11 +169,11 @@ async function forward(request: Request, config: Config, state: RelayState | und
   return new Response(response.body, { status: response.status, headers: responseHeaders(response.headers, fallback) });
 }
 
-export async function responses(request: Request, config: Config, state?: RelayState, client?: string) {
+export async function responses(request: Request, config: Config, state?: RequestState, client?: string) {
   return forward(request, config, state, client, "/responses", normalize(await request.text(), request.headers));
 }
 
-export async function compact(request: Request, config: Config, state?: RelayState, client?: string) {
+export async function compact(request: Request, config: Config, state?: RequestState, client?: string) {
   return forward(request, config, state, client, "/responses/compact", {
     body: await request.text(), stream: false, model: undefined, native: native(request.headers), changes: []
   });

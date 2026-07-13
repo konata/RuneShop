@@ -4,7 +4,7 @@ import type { Context, Hono, MiddlewareHandler } from "hono";
 import { deleteCookie, getCookie, setCookie } from "hono/cookie";
 import { AccountClient, credentialStatus, importCredential } from "./account";
 import { handoff, manualServiceAvailable, manualServiceCommand, serviceAvailable, Updater } from "./service";
-import { adminHash, emit, initialize, type Config, type RelayState } from "./state";
+import { adminHash, emit, initialize, type Config, type RequestState } from "./state";
 
 const cookie = "runeshop-admin";
 const root = resolve(import.meta.dir, "../public");
@@ -81,7 +81,7 @@ function sessionReply(context: Context) {
   return context.json({ ok: true });
 }
 
-export function mountAdmin(app: Hono, config: Config, state: RelayState) {
+export function mountAdmin(app: Hono, config: Config, state: RequestState) {
   const account = new AccountClient(config);
   const updater = new Updater(config);
   const sessions = new AdminSessions(config.adminPasswordHash);
@@ -121,8 +121,8 @@ export function mountAdmin(app: Hono, config: Config, state: RelayState) {
   });
 
   app.get("/admin/api/status", async () => {
-    const [relay, revision] = await Promise.all([state.snapshot(), updater.status(false)]);
-    return json({ online: true, platform: `${process.platform}/${process.arch}`, commit: revision.current, ...relay });
+    const [requests, revision] = await Promise.all([state.snapshot(), updater.status(false)]);
+    return json({ online: true, platform: `${process.platform}/${process.arch}`, commit: revision.current, ...requests });
   });
   app.get("/admin/api/account", async (context) => {
     try { return json(await account.get(new URL(context.req.url).searchParams.get("refresh") === "1")); }

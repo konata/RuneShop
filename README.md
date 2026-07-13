@@ -2,7 +2,7 @@
 
 ![RuneShop](assets/art.jpg)
 
-Relay Codex requests across your own trusted machines.
+Use Codex from any of your own trusted machines.
 
 ## Deploy
 

@@ -2,12 +2,12 @@ import { expect, test } from "bun:test";
 import { mkdtemp, readFile, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { RelayState } from "../src/state";
+import { RequestState } from "../src/state";
 
-test("tracks daily and monthly relay activity", async () => {
+test("tracks daily and monthly request activity", async () => {
   const directory = await mkdtemp(join(tmpdir(), "runeshop-state-"));
   let now = new Date("2026-07-10T12:00:00Z");
-  const state = new RelayState(directory, () => now);
+  const state = new RequestState(directory, () => now);
   await state.record({ time: new Date().toISOString(), path: "/responses", client: "/Users/natsuki/project", model: "gpt-5.5", status: 200, duration: 120 });
   await state.record({ time: new Date().toISOString(), path: "/responses", model: "gpt-5.5", status: 400, duration: 80, detail: "bad field" });
 

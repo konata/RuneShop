@@ -3,7 +3,7 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { models, responseHeaders, responses, upstreamHeaders } from "../src/codex";
-import { configure, RelayState } from "../src/state";
+import { configure, RequestState } from "../src/state";
 import { configuration } from "./config";
 
 configure("silent");
@@ -87,7 +87,7 @@ test("returns native Codex response metadata downstream", () => {
   expect(headers.has("set-cookie")).toBe(false);
 });
 
-test("adds relay defaults without replacing upstream cache policy", () => {
+test("adds streaming defaults without replacing upstream cache policy", () => {
   const stream = responseHeaders(new Headers(), "text/event-stream; charset=utf-8");
   expect(stream.get("content-type")).toBe("text/event-stream; charset=utf-8");
   expect(stream.get("cache-control")).toBe("no-cache");
@@ -119,7 +119,7 @@ test.serial("propagates downstream cancellation upstream", async () => {
   });
 
   try {
-    const state = new RelayState(directory);
+    const state = new RequestState(directory);
     await responses(request, { ...config, authFile }, state, "/Users/natsuki/Lang/RuneShop");
     expect(signal).toBe(request.signal);
     const snapshot = await state.snapshot();

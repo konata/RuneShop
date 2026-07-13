@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Hono } from "hono";
 import { mountAdmin } from "../src/admin";
-import { configure, RelayState } from "../src/state";
+import { configure, RequestState } from "../src/state";
 import { configuration } from "./config";
 
 test("protects the admin page with a cookie session and CSRF token", async () => {
@@ -16,7 +16,7 @@ test("protects the admin page with a cookie session and CSRF token", async () =>
     authFile: join(directory, "auth.json"),
     stateDir: directory
   });
-  mountAdmin(app, config, new RelayState(directory));
+  mountAdmin(app, config, new RequestState(directory));
 
   try {
     const anonymous = await app.request("http://localhost/admin");
