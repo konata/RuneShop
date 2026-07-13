@@ -23,9 +23,10 @@ RuneShop listens on `0.0.0.0:3721` during setup. To choose another port:
 bun run start --port <PORT>
 ```
 
-Open `http://<HOST>:<PORT>/bootstrap`, enter the setup token printed by
-RuneShop, choose an admin pass, and upload the `auth.json` created by Codex
-sign-in. Configuration and credentials are stored in `~/.runeshop`.
+Open the Setup URL printed by RuneShop. It includes the one-time token; replace
+the hostname if necessary, then choose an admin pass and upload the `auth.json`
+created by Codex sign-in. Configuration and credentials are stored in
+`~/.runeshop`, and the Admin page becomes available immediately.
 
 ### systemd
 
@@ -40,10 +41,11 @@ Root installs the system-wide unit, but the service continues to run as the
 user who completed Bootstrap. It starts at boot, restarts after failures, and
 supports updates from the Admin page.
 
-Without systemd, restart RuneShop manually with `bun run start`. Managed
-updates are unavailable in this mode.
+Without systemd, RuneShop stays attached to the current terminal and managed
+updates are unavailable. Start it again with `bun run start` after the process
+stops or the machine reboots.
 
-After restart, open `http://<HOST>:<PORT>/admin`.
+Open `http://<HOST>:<PORT>/admin` after setup.
 
 ## Codex
 

@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Hono } from "hono";
 import { mountBootstrap } from "../src/admin";
+import { application } from "../src/server";
 import { configure, load } from "../src/state";
 
 test.serial("bootstraps RuneShop behind a one-time token", async () => {
@@ -32,7 +33,11 @@ test.serial("bootstraps RuneShop behind a one-time token", async () => {
     expect(html).not.toContain('minlength="8"');
     const script = await (await app.request("http://localhost/bootstrap/app.js")).text();
     expect(script).toContain("sessionStorage.getItem(storageKey)");
+    expect(script).toContain("new URLSearchParams(location.hash.slice(1))");
+    expect(script).toContain("history.replaceState");
     expect(script).toContain("byId(\"token-field\").hidden = !needsToken");
+    expect(script).not.toContain("ready after restart");
+    expect(html).toContain('id="open-admin"');
     expect((await app.request("http://localhost/base.css")).status).toBe(200);
 
     const denied = await app.request("http://localhost/bootstrap/api/setup", {
@@ -93,6 +98,36 @@ test.serial("bootstraps RuneShop behind a one-time token", async () => {
       body: form
     });
     expect(repeated.status).toBe(409);
+  } finally {
+    globalThis.fetch = original;
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test.serial("activates RuneShop immediately after setup", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "runeshop-switch-"));
+  const config = { ...load(directory, []), managed: false };
+  const runtime = application(config, "bootstrap-secret");
+  const original = globalThis.fetch;
+  configure("silent");
+  globalThis.fetch = (async (_input) => Response.json({ plan_type: "pro" })) as typeof fetch;
+  const request = (path: string, init?: RequestInit) => runtime.fetch(new Request(`http://localhost${path}`, init));
+
+  try {
+    expect((await request("/health")).status).toBe(503);
+    const form = new FormData();
+    form.set("admin_password", "admin-secret");
+    form.set("auth", new File([JSON.stringify({
+      access_token: "access", refresh_token: "refresh", account_id: "account", expired: "2099-01-01T00:00:00Z"
+    })], "auth.json", { type: "application/json" }));
+    const setup = await request("/bootstrap/api/setup", {
+      method: "POST", headers: { "x-runeshop-bootstrap": "bootstrap-secret" }, body: form
+    });
+    expect(setup.status).toBe(200);
+    expect((await request("/health")).status).toBe(200);
+    expect((await request("/admin/login")).status).toBe(200);
+    const status = await (await request("/bootstrap/api/status")).json();
+    expect(status.configured).toBe(true);
   } finally {
     globalThis.fetch = original;
     await rm(directory, { recursive: true, force: true });

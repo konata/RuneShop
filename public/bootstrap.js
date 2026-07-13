@@ -7,7 +7,12 @@ const service = byId("install-service")
 const serviceError = byId("service-error")
 const file = byId("auth-file")
 const storageKey = "runeshop-setup-token"
-let bootstrapToken = sessionStorage.getItem(storageKey) || ""
+const fragmentToken = new URLSearchParams(location.hash.slice(1)).get("token")?.trim() || ""
+let bootstrapToken = fragmentToken || sessionStorage.getItem(storageKey) || ""
+if (fragmentToken) {
+  sessionStorage.setItem(storageKey, fragmentToken)
+  history.replaceState(null, "", `${location.pathname}${location.search}`)
+}
 
 function failure(node, cause) {
   node.textContent = cause.message
@@ -35,14 +40,14 @@ function complete(managed, systemd, manualSystemd, manualSystemdCommand) {
   byId("setup-state").classList.add("ready")
   byId("setup-label").textContent = "Ready"
   byId("hero-title").textContent = "Ready"
-  byId("hero-copy").innerHTML = "<li>Configuration saved</li><li>Restart RuneShop</li><li>Open the admin console</li>"
+  byId("hero-copy").innerHTML = "<li>Configuration saved</li><li>RuneShop is ready</li><li>Open the admin console</li>"
   byId("bootstrap-title").textContent = "Setup complete"
   byId("bootstrap-copy").hidden = false
   byId("bootstrap-copy").textContent = needsToken
     ? "Enter the setup token again to install the systemd service."
-    : managed ? "RuneShop is restarting under systemd." : "RuneShop is ready after restart."
-  service.hidden = !systemd
-  byId("manual-action").hidden = systemd || managed
+    : managed ? "RuneShop is restarting under systemd." : systemd || manualSystemd ? "RuneShop is ready. Service installation is optional." : "RuneShop is ready."
+  service.hidden = !systemd || managed
+  byId("manual-action").hidden = !manualSystemd || managed
   if (manualSystemd) {
     byId("manual-action-copy").textContent = "Install and start the systemd service manually:"
     byId("manual-action-command").textContent = manualSystemdCommand
@@ -51,8 +56,9 @@ function complete(managed, systemd, manualSystemd, manualSystemdCommand) {
   byId("token-field").hidden = !needsToken
   byId("setup-panel").hidden = true
   byId("complete-panel").hidden = false
-  if (!systemd) sessionStorage.removeItem(storageKey)
-  void waitForAdmin()
+  byId("open-admin").hidden = false
+  if (!systemd && !manualSystemd) sessionStorage.removeItem(storageKey)
+  if (managed || !systemd && !manualSystemd) void waitForAdmin()
 }
 
 file.addEventListener("change", () => {
@@ -98,6 +104,7 @@ service.addEventListener("click", async () => {
     service.textContent = "Starting RuneShop…"
     byId("restart-copy").hidden = false
     byId("restart-copy").textContent = "This page will continue when the service is ready."
+    void waitForAdmin()
   } catch (cause) {
     failure(serviceError, cause)
     service.disabled = false

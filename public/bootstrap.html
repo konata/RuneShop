@@ -30,10 +30,10 @@
         <div class="hero-copy">
           <h1 id="hero-title">Setup</h1>
           <ul id="hero-copy" class="hero-list" aria-label="Setup checklist">
-            <li>Unlock this instance with the setup token</li>
+            <li>Open the setup link from the server logs</li>
             <li>Choose an admin pass</li>
             <li>Import your Codex credential</li>
-            <li>Restart and open the admin console</li>
+            <li>Open the admin console</li>
           </ul>
         </div>
         <dl class="hero-facts" aria-label="Setup facts">
@@ -68,7 +68,7 @@
           </li>
           <li>
             <span>02</span>
-            <strong>Restart</strong>
+            <strong>Open</strong>
           </li>
         </ol>
 
@@ -113,8 +113,9 @@
           <div class="success-orb" aria-hidden="true"></div>
           <p class="complete-title">Configuration saved</p>
           <button id="install-service" class="primary-button" type="button" hidden>Install systemd service</button>
+          <a id="open-admin" class="quiet-button" href="/admin/login" hidden>Open admin console</a>
           <div id="manual-action" class="manual-action">
-            <p id="manual-action-copy" class="field-hint">Restart RuneShop to open the admin console:</p>
+            <p id="manual-action-copy" class="field-hint">Install and start the systemd service manually:</p>
             <code id="manual-action-command" class="mono">bun run start</code>
           </div>
           <p id="restart-copy" class="field-hint" hidden></p>

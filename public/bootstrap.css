@@ -601,6 +601,7 @@ input:focus {
 }
 .key-copy code { min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
 .complete-panel > .primary-button { width: 100%; margin-top: 6px; }
+.complete-panel > .quiet-button { width: 100%; display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; text-decoration: none; }
 .complete-panel > .field-hint { max-width: 300px; margin: 0; text-align: center; }
 .complete-panel > .form-error { width: 100%; margin-top: 0; text-align: left; }
 

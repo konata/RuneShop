@@ -1,4 +1,5 @@
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
+import { hostname } from "node:os";
 import { extname, resolve } from "node:path";
 import type { Context, Hono, MiddlewareHandler } from "hono";
 import { deleteCookie, getCookie, setCookie } from "hono/cookie";
@@ -152,7 +153,7 @@ export function mountAdmin(app: Hono, config: Config, state: RequestState) {
 }
 
 const digest = (value: string) => createHash("sha256").update(value).digest();
-export function mountBootstrap(app: Hono, config: Config, secret = randomBytes(32).toString("base64url")) {
+export function mountBootstrap(app: Hono, config: Config, secret = randomBytes(32).toString("base64url"), ready = () => {}) {
   const authorized = (value = "") => timingSafeEqual(digest(value), digest(secret));
   const denied = (value?: string) => authorized(value) ? null : failure("invalid bootstrap token", 401);
   const systemd = serviceAvailable();
@@ -162,7 +163,8 @@ export function mountBootstrap(app: Hono, config: Config, secret = randomBytes(3
     ...(manual ? { manual_systemd_command: manualServiceCommand() } : {})
   });
 
-  emit("info", "bootstrap_ready", { url: `http://<server>:${config.port}/bootstrap`, token: secret, systemd, manual_systemd: manual });
+  const url = `http://${hostname() || "localhost"}:${config.port}/bootstrap#token=${encodeURIComponent(secret)}`;
+  emit("info", "bootstrap_ready", { url, systemd, manual_systemd: manual });
   for (const path of ["/", "/admin", "/admin/", "/admin/login"]) app.get(path, (context) => context.redirect("/bootstrap"));
   app.all("/admin/api/*", () => failure("RuneShop setup is required", 401));
   assets(app, [
@@ -184,6 +186,7 @@ export function mountBootstrap(app: Hono, config: Config, secret = randomBytes(3
     const passwordHash = await adminHash(password);
     await importCredential(config.authFile, await (form.get("auth") as File).text());
     await initialize(config, passwordHash);
+    ready();
     emit("info", "bootstrap_complete", { port: config.port, client_access: "trusted", systemd, manual_systemd: manual });
     const response = json({ ok: true, ...serviceStatus() });
     if (config.managed) setTimeout(() => process.exit(0), 500);

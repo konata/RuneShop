@@ -6,9 +6,6 @@ import { configure, elapsed, emit, load, RequestState, type Config } from "./sta
 
 const host = "0.0.0.0";
 const idleTimeout = 240;
-const config = load();
-const app = new Hono();
-configure("info");
 
 function json(body: unknown, status = 200) {
   return Response.json(body, { status, headers: { "cache-control": "no-store", "x-content-type-options": "nosniff" } });
@@ -22,7 +19,14 @@ function client(request: Request) {
   return (request.headers.get("authorization")?.replace(/^Bearer\s+/i, "") || request.headers.get("x-api-key") || "").trim();
 }
 
-function mountConfigured(config: Config) {
+function finish(app: Hono) {
+  app.notFound(() => problem(404, "not found", "not_found"));
+  app.onError((error) => error instanceof HTTPException ? error.getResponse() : problem(500, error.message, "internal_error"));
+  return app;
+}
+
+function configured(config: Config) {
+  const app = new Hono();
   const state = new RequestState(config.stateDir);
   app.use("*", async (context, next) => {
     const start = performance.now();
@@ -45,10 +49,32 @@ function mountConfigured(config: Config) {
   for (const path of ["/models", "/v1/models"]) app.get(path, (context) => models(new URL(context.req.url).searchParams.has("client_version")));
   app.post("/v1/responses", (context) => responses(context.req.raw, config, state, client(context.req.raw)));
   app.post("/v1/responses/compact", (context) => compact(context.req.raw, config, state, client(context.req.raw)));
+  return finish(app);
 }
 
-config.configured ? mountConfigured(config) : mountBootstrap(app, config);
-app.notFound(() => problem(404, "not found", "not_found"));
-app.onError((error) => error instanceof HTTPException ? error.getResponse() : problem(500, error.message, "internal_error"));
-Bun.serve({ hostname: host, port: config.port, idleTimeout, fetch: app.fetch });
-emit("info", "server_start", { host, port: config.port, configured: config.configured, managed: config.managed, idle_timeout_seconds: idleTimeout });
+export function application(config = load(), secret?: string) {
+  let setup: Hono | undefined;
+  let active: Hono;
+  if (config.configured) active = configured(config);
+  else {
+    setup = new Hono();
+    active = setup;
+    mountBootstrap(setup, config, secret, () => (active = configured(load(config.stateDir, []))));
+    finish(setup);
+  }
+  return {
+    fetch: (request: Request) => {
+      const path = new URL(request.url).pathname;
+      const app = setup && (path === "/bootstrap" || path.startsWith("/bootstrap/")) ? setup : active;
+      return app.fetch(request);
+    }
+  };
+}
+
+if (import.meta.main) {
+  configure("info");
+  const config = load();
+  const app = application(config);
+  Bun.serve({ hostname: host, port: config.port, idleTimeout, fetch: app.fetch });
+  emit("info", "server_start", { host, port: config.port, configured: config.configured, managed: config.managed, idle_timeout_seconds: idleTimeout });
+}
