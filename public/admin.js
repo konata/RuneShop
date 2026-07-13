@@ -393,6 +393,8 @@ function offline(error) {
 
 ui.update.addEventListener("click", showUpdate)
 ui["confirm-update"].addEventListener("click", startUpdate)
+const activityCard = ui.activity.closest(".activity-card")
+ui["activity-title"].closest(".section-heading").addEventListener("dblclick", () => activityCard.classList.toggle("show-project"))
 for (const [provider, sample] of Object.entries(configs())) {
   ui[`${provider}-config`].textContent = sample
   const name = provider === "codex" ? "Codex" : provider === "opencode" ? "OpenCode" : "Pi"

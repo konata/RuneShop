@@ -63,6 +63,7 @@ test("protects the admin page with a cookie session and CSRF token", async () =>
     expect(javascript).not.toContain("RUNESHOP_API_KEY");
     expect(javascript).toContain("client.textContent = clientName(clientId)");
     expect(javascript).toContain("client.title = clientId");
+    expect(javascript).toContain('activityCard.classList.toggle("show-project")');
     expect(javascript).toContain('event.count > 1 ? ` × ${event.count}` : ""');
     expect(javascript).toContain("window.window_seconds / 3600");
     expect(javascript).toContain('ui["secondary-label"].textContent');
@@ -72,6 +73,9 @@ test("protects the admin page with a cookie session and CSRF token", async () =>
     expect(javascript).toContain("if (loading) return");
     expect(javascript).toContain('request("/admin/api/status").then(status).catch(offline)');
     expect((await app.request("http://localhost/base.css")).status).toBe(200);
+    const stylesheet = await app.request("http://localhost/admin/app.css", { headers: { cookie } });
+    expect(stylesheet.status).toBe(200);
+    expect(await stylesheet.text()).toContain(".activity-card.show-project");
 
     const session = await app.request("http://localhost/admin/api/session", { headers: { cookie } });
     const { csrf } = await session.json() as { csrf: string };

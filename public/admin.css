@@ -220,6 +220,7 @@ dialog:focus-visible {
 .credential-card,
 .setup-card { margin-top: 20px; overflow: hidden; }
 .section-heading { min-height: 50px; padding: 16px 20px; }
+.activity-card .section-heading { user-select: none; }
 .section-heading h2 { margin: 3px 0 0; font-size: 15px; }
 .section-heading > .muted { font-size: 12px; }
 
@@ -227,7 +228,7 @@ dialog:focus-visible {
 .activity li {
   min-height: 44px;
   display: grid;
-  grid-template-columns: 16px minmax(0, 1fr) minmax(0, 130px) auto;
+  grid-template-columns: 16px minmax(0, 1fr) auto;
   align-items: center;
   gap: 16px;
   border-bottom: 1px solid var(--line);
@@ -236,7 +237,9 @@ dialog:focus-visible {
 
 .activity li:last-child { border-bottom: 0; }
 .activity .event { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.activity .client { min-width: 0; overflow: hidden; color: var(--muted); font-family: var(--mono); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.activity .client { display: none; min-width: 0; overflow: hidden; color: var(--muted); font-family: var(--mono); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.activity-card.show-project .activity li { grid-template-columns: 16px minmax(0, 1fr) minmax(0, 130px) auto; }
+.activity-card.show-project .activity .client { display: block; }
 .activity .model { display: none; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .activity .model,
 .activity time { color: var(--muted); font-family: var(--mono); font-size: 12px; }
@@ -349,8 +352,9 @@ dialog:focus-visible {
   .page-heading h1 { font-size: 30px; }
   .usage-panel { padding: 28px; }
   .usage-value { font-size: 60px; }
-  .activity li { grid-template-columns: 16px minmax(0, 1fr) 150px 110px 72px; }
-  .activity .model { display: inline; }
+  .activity li { grid-template-columns: 16px minmax(0, 1fr) 110px 72px; }
+  .activity-card.show-project .activity li { grid-template-columns: 16px minmax(0, 1fr) 150px 110px 72px; }
+  .activity .model { display: block; }
 }
 
 @media (min-width: 1024px) {
