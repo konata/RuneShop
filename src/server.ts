@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { HTTPException } from "hono/http-exception";
 import { mountAdmin, mountBootstrap } from "./admin";
-import { compact, models, responses } from "./codex";
+import { compact, models, responses, workspace } from "./codex";
 import { configure, elapsed, emit, load, RequestState, type Config } from "./state";
 
 const host = "0.0.0.0";
@@ -18,11 +18,7 @@ function problem(status: number, message: string, code = "request_error") {
 export function client(request: Request) {
   const key = (request.headers.get("authorization")?.replace(/^Bearer\s+/i, "") || request.headers.get("x-api-key") || "").trim();
   if (key && key !== "/") return key;
-  try {
-    const metadata = JSON.parse(request.headers.get("x-codex-turn-metadata") || "{}") as { workspaces?: unknown };
-    const workspaces = metadata.workspaces;
-    return workspaces && typeof workspaces === "object" && !Array.isArray(workspaces) ? Object.keys(workspaces)[0] || "" : "";
-  } catch { return ""; }
+  return workspace(request.headers.get("x-codex-turn-metadata"));
 }
 
 function finish(app: Hono) {

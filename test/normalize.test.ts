@@ -10,18 +10,27 @@ test("preserves native Codex responses requests", () => {
     max_output_tokens: 100000,
     safety_identifier: "user",
     reasoning: { effort: "high", summary: "auto" },
-    service_tier: "priority"
+    service_tier: "priority",
+    client_metadata: {
+      "x-codex-turn-metadata": JSON.stringify({ workspaces: { "/Users/natsuki/Lang/RuneShop": { has_changes: true } } })
+    }
   });
 
   expect(normalize(body, new Headers({ "x-codex-window-id": "window" }))).toEqual({
     body,
     stream: true,
     model: "gpt-5.5",
+    workspace: "/Users/natsuki/Lang/RuneShop",
     effort: "high",
     fast: true,
     native: true,
     changes: []
   });
+});
+
+test("ignores malformed body workspace metadata", () => {
+  const body = JSON.stringify({ model: "gpt-5.5", client_metadata: { "x-codex-turn-metadata": "invalid" } });
+  expect(normalize(body, new Headers({ "x-codex-window-id": "window" })).workspace).toBeUndefined();
 });
 
 test("normalizes generic Responses clients for Codex upstream", () => {

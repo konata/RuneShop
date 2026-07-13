@@ -128,12 +128,17 @@ test.serial("propagates downstream cancellation upstream", async () => {
   const request = new Request("http://localhost/v1/responses", {
     method: "POST",
     headers: { "x-codex-window-id": "window" },
-    body: JSON.stringify({ model: "gpt-5.5", input: [], reasoning: { effort: "xhigh" }, service_tier: "priority", stream: true })
+    body: JSON.stringify({
+      model: "gpt-5.5", input: [], reasoning: { effort: "xhigh" }, service_tier: "priority", stream: true,
+      client_metadata: {
+        "x-codex-turn-metadata": JSON.stringify({ workspaces: { "/Users/natsuki/Lang/RuneShop": { has_changes: true } } })
+      }
+    })
   });
 
   try {
     const state = new RequestState(directory);
-    await responses(request, { ...config, authFile }, state, "/Users/natsuki/Lang/RuneShop");
+    await responses(request, { ...config, authFile }, state);
     expect(signal).toBe(request.signal);
     const snapshot = await state.snapshot();
     expect(snapshot.today.requests).toBe(1);

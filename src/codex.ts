@@ -17,6 +17,14 @@ function object(value: unknown): Payload | null {
   return value && typeof value === "object" && !Array.isArray(value) ? value as Payload : null;
 }
 
+export function workspace(value: unknown) {
+  try {
+    const metadata = object(typeof value === "string" ? JSON.parse(value) : value);
+    const workspaces = object(metadata?.workspaces);
+    return workspaces ? Object.keys(workspaces)[0] || "" : "";
+  } catch { return ""; }
+}
+
 function mode(payload: Payload): { effort?: string; fast?: boolean } {
   const effort = object(payload.reasoning)?.effort;
   return { ...(typeof effort === "string" ? { effort } : {}), ...(payload.service_tier === "priority" ? { fast: true } : {}) };
@@ -71,7 +79,8 @@ export function normalize(body: string, headers = new Headers()) {
   const payload = JSON.parse(body) as Payload;
   const stream = payload.stream === true;
   const model = typeof payload.model === "string" ? payload.model : undefined;
-  if (native(headers)) return { body, stream, model, ...mode(payload), native: true, changes: [] };
+  const project = workspace(object(payload.client_metadata)?.["x-codex-turn-metadata"]);
+  if (native(headers)) return { body, stream, model, ...(project ? { workspace: project } : {}), ...mode(payload), native: true, changes: [] };
   const changes: string[] = [];
   const normalized: Payload = {};
   for (const [field, value] of Object.entries(payload)) {
@@ -84,7 +93,10 @@ export function normalize(body: string, headers = new Headers()) {
     if (JSON.stringify(payload[field]) !== JSON.stringify(value)) changes.push(`${payload[field] === undefined ? "set" : "rewrite"}:${field}`);
     normalized[field] = value;
   }
-  return { body: changes.length ? JSON.stringify(normalized) : body, stream, model, ...mode(normalized), native: false, changes };
+  return {
+    body: changes.length ? JSON.stringify(normalized) : body, stream, model,
+    ...(project ? { workspace: project } : {}), ...mode(normalized), native: false, changes
+  };
 }
 
 type RequestBody = ReturnType<typeof normalize>;
@@ -176,7 +188,8 @@ async function forward(request: Request, config: Config, state: RequestState | u
 }
 
 export async function responses(request: Request, config: Config, state?: RequestState, client?: string) {
-  return forward(request, config, state, client, "/responses", normalize(await request.text(), request.headers));
+  const payload = normalize(await request.text(), request.headers);
+  return forward(request, config, state, client || payload.workspace, "/responses", payload);
 }
 
 export async function compact(request: Request, config: Config, state?: RequestState, client?: string) {
