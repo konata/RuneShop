@@ -3,6 +3,7 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { models, responseHeaders, responses, upstreamHeaders } from "../src/codex";
+import { client } from "../src/server";
 import { configure, RequestState } from "../src/state";
 import { configuration } from "./config";
 
@@ -60,6 +61,18 @@ test("uses configured user agent for generic clients", () => {
   const headers = upstreamHeaders(request, { access: "access", account: "" }, true, false);
   expect(headers.get("user-agent")).toBe("codex_cli_rs");
   expect(headers.has("x-openai-subagent")).toBe(false);
+});
+
+test("uses turn workspace only when the client key has no project path", () => {
+  const metadata = JSON.stringify({ workspaces: { "/Users/natsuki/Lang/RuneShop": { has_changes: true } } });
+  const request = (key: string, turn = metadata) => new Request("http://localhost/v1/responses", {
+    headers: { authorization: `Bearer ${key}`, "x-codex-turn-metadata": turn }
+  });
+
+  expect(client(request("/Users/natsuki/Lang/RuneShop/src"))).toBe("/Users/natsuki/Lang/RuneShop/src");
+  expect(client(request("/"))).toBe("/Users/natsuki/Lang/RuneShop");
+  expect(client(request("/", "invalid"))).toBe("");
+  expect(client(new Request("http://localhost/v1/responses", { headers: { authorization: "Bearer /" } }))).toBe("");
 });
 
 test("returns native Codex response metadata downstream", () => {

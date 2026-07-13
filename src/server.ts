@@ -15,8 +15,14 @@ function problem(status: number, message: string, code = "request_error") {
   return json({ error: { message, type: status >= 500 ? "server_error" : "invalid_request_error", code } }, status);
 }
 
-function client(request: Request) {
-  return (request.headers.get("authorization")?.replace(/^Bearer\s+/i, "") || request.headers.get("x-api-key") || "").trim();
+export function client(request: Request) {
+  const key = (request.headers.get("authorization")?.replace(/^Bearer\s+/i, "") || request.headers.get("x-api-key") || "").trim();
+  if (key && key !== "/") return key;
+  try {
+    const metadata = JSON.parse(request.headers.get("x-codex-turn-metadata") || "{}") as { workspaces?: unknown };
+    const workspaces = metadata.workspaces;
+    return workspaces && typeof workspaces === "object" && !Array.isArray(workspaces) ? Object.keys(workspaces)[0] || "" : "";
+  } catch { return ""; }
 }
 
 function finish(app: Hono) {
