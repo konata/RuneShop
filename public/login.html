@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#f2f3ef">
+    <title>Sign in · RuneShop</title>
+    <link rel="icon" href="data:,">
+    <link rel="stylesheet" href="/admin/app.css">
+    <script src="/admin/login.js" defer></script>
+  </head>
+  <body class="login-page">
+    <main class="login-shell">
+      <section class="login-card" aria-labelledby="login-title">
+        <div class="login-brand">
+          <span class="mark" aria-hidden="true">RS</span>
+          <span class="eyebrow">Private console</span>
+        </div>
+        <h1 id="login-title">RuneShop</h1>
+        <p class="muted">Enter the admin password to continue.</p>
+        <form id="login-form" class="login-form">
+          <label for="password">Admin password</label>
+          <input id="password" name="password" type="password" autocomplete="current-password" autofocus required>
+          <button id="login-button" class="primary-button" type="submit">Sign in</button>
+          <p id="login-error" class="form-error" role="alert" hidden></p>
+        </form>
+      </section>
+    </main>
+  </body>
+</html>

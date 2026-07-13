@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#f3f2ee">
+    <title>RuneShop Setup</title>
+    <link rel="icon" href="data:,">
+    <link rel="stylesheet" href="/bootstrap/app.css">
+    <script src="/bootstrap/app.js" defer></script>
+  </head>
+  <body>
+    <div class="ambient" aria-hidden="true"></div>
+    <header class="topbar">
+      <div class="topbar-inner">
+        <a class="brand" href="/bootstrap" aria-label="RuneShop setup">
+          <span class="brand-mark" aria-hidden="true">RS</span>
+          <span>
+            <strong>RuneShop</strong>
+            <small>Private relay</small>
+          </span>
+        </a>
+        <div id="setup-state" class="setup-state"><span aria-hidden="true"></span><span id="setup-label">Bootstrap</span></div>
+      </div>
+    </header>
+
+    <main class="shell">
+      <section class="hero" aria-labelledby="hero-title">
+        <div class="hero-copy">
+          <h1 id="hero-title">Setup</h1>
+          <ul id="hero-copy" class="hero-list" aria-label="Setup checklist">
+            <li>Unlock this instance with the setup token</li>
+            <li>Choose an admin pass</li>
+            <li>Import your Codex credential</li>
+            <li>Restart and open the admin console</li>
+          </ul>
+        </div>
+        <dl class="hero-facts" aria-label="Setup facts">
+          <div>
+            <dt>Endpoint</dt>
+            <dd id="endpoint" class="mono"></dd>
+          </div>
+          <div>
+            <dt>State directory</dt>
+            <dd class="mono">~/.runeshop</dd>
+          </div>
+          <div>
+            <dt>Credential</dt>
+            <dd>Validated with Codex, stored locally</dd>
+          </div>
+        </dl>
+      </section>
+
+      <section class="setup-card" aria-labelledby="bootstrap-title">
+        <div class="card-accent" aria-hidden="true"></div>
+        <header class="card-heading">
+          <div>
+            <h2 id="bootstrap-title">Initialize instance</h2>
+            <p id="bootstrap-copy" hidden></p>
+          </div>
+        </header>
+
+        <ol id="setup-steps" class="steps" aria-label="Setup steps">
+          <li>
+            <span>01</span>
+            <strong>Configure</strong>
+          </li>
+          <li>
+            <span>02</span>
+            <strong>Restart</strong>
+          </li>
+        </ol>
+
+        <div id="token-field" class="token-field">
+          <div class="field-heading token-heading">
+            <label for="bootstrap-token">Setup token</label>
+            <span class="tooltip" tabindex="0" aria-describedby="setup-token-tip" aria-label="Setup token help">
+              <span aria-hidden="true">?</span>
+              <span id="setup-token-tip" class="tooltip-bubble" role="tooltip">Find this one-time token in the server logs.</span>
+            </span>
+          </div>
+          <input id="bootstrap-token" class="mono" type="text" autocomplete="one-time-code" placeholder="Paste setup token" required>
+        </div>
+
+        <div id="setup-panel">
+          <form id="bootstrap-form">
+            <div class="field">
+              <label for="admin-password">Admin pass</label>
+              <input id="admin-password" name="admin_password" type="text" autocomplete="off" placeholder="Choose admin pass" required>
+              <p class="field-hint">Used to sign in to the local admin console.</p>
+            </div>
+
+            <div class="field">
+              <label for="auth-file">Codex credential</label>
+              <input id="auth-file" class="file-input" name="auth" type="file" accept="application/json,.json" required>
+              <label class="file-picker" for="auth-file">
+                <span class="file-icon mono">JSON</span>
+                <span class="file-copy">
+                  <strong id="file-name">Choose auth.json</strong>
+                  <small>Validated with Codex before saving, up to 1 MB</small>
+                </span>
+                <span class="file-action">Browse</span>
+              </label>
+            </div>
+
+            <button id="setup-button" class="primary-button" type="submit">Save configuration</button>
+            <p id="setup-error" class="form-error" role="alert" hidden></p>
+          </form>
+        </div>
+
+        <div id="complete-panel" class="complete-panel" hidden>
+          <div class="success-orb" aria-hidden="true"></div>
+          <p class="complete-title">Configuration saved</p>
+          <button id="install-service" class="primary-button" type="button" hidden>Install systemd service</button>
+          <div id="manual-action" class="manual-action">
+            <p id="manual-action-copy" class="field-hint">Restart RuneShop to open the admin console:</p>
+            <code id="manual-action-command" class="mono">bun run start</code>
+          </div>
+          <p id="restart-copy" class="field-hint" hidden></p>
+          <p id="service-error" class="form-error" role="alert" hidden></p>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>

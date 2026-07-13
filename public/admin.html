@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#f2f3ef">
+    <title>RuneShop</title>
+    <link rel="icon" href="data:,">
+    <link rel="stylesheet" href="/admin/app.css">
+    <script src="/admin/app.js" defer></script>
+  </head>
+  <body>
+    <header class="masthead">
+      <div class="masthead-inner">
+        <div class="brand">
+          <span class="mark" aria-hidden="true">RS</span>
+          <div>
+            <strong>RuneShop</strong>
+            <span id="revision" class="mono">loading</span>
+          </div>
+        </div>
+        <div class="masthead-actions">
+          <span id="health" class="status"><i aria-hidden="true"></i>Online</span>
+          <button id="logout" class="quiet-button masthead-logout" type="button">Sign out</button>
+        </div>
+      </div>
+    </header>
+
+    <main class="shell">
+      <header class="page-heading">
+        <h1>Overview</h1>
+        <p>Usage, updates, and recent activity.</p>
+      </header>
+
+      <div class="dashboard-grid">
+        <section class="usage-panel" aria-labelledby="usage-title">
+          <div class="usage-heading">
+            <div>
+              <span id="usage-title" class="eyebrow inverse">Usage limits</span>
+              <p id="primary-percent" class="usage-value mono">--%</p>
+              <p id="primary-reset" class="usage-caption">5-hour window</p>
+            </div>
+            <span id="plan" class="plan mono">--</span>
+          </div>
+          <div class="usage-lower">
+            <div
+              id="primary-progress"
+              class="progress"
+              role="progressbar"
+              aria-label="5-hour usage"
+              aria-valuemin="0"
+              aria-valuemax="100"
+              aria-valuenow="0"
+            ><span></span></div>
+            <dl class="usage-facts">
+              <div><dt>Weekly</dt><dd id="weekly" class="mono">--%</dd></div>
+              <div><dt>Lifetime</dt><dd id="lifetime" class="mono">--</dd></div>
+              <div><dt>Reset credits</dt><dd id="credits" class="mono">--</dd></div>
+            </dl>
+          </div>
+        </section>
+
+        <div class="side-stack">
+          <section class="card status-card" aria-labelledby="relay-title">
+            <span id="relay-title" class="eyebrow">Requests</span>
+            <dl class="stats">
+              <div>
+                <dt>Today</dt>
+                <dd class="period-stat"><span id="today-requests" class="mono">0</span><small><span id="today-success">100%</span> success</small></dd>
+              </div>
+              <div>
+                <dt>This month</dt>
+                <dd class="period-stat"><span id="month-requests" class="mono">0</span><small><span id="month-success">100%</span> success</small></dd>
+              </div>
+              <div><dt>Uptime</dt><dd id="uptime" class="mono">--</dd></div>
+            </dl>
+          </section>
+
+          <section class="card update-card" aria-labelledby="update-title">
+            <div>
+              <div class="card-heading">
+                <span id="update-title" class="eyebrow">Update</span>
+                <span id="update-badge" class="badge">Checking</span>
+              </div>
+              <p id="update-summary" class="update-summary">Checking origin/main</p>
+              <p id="update-revisions" class="revision-line mono">--</p>
+            </div>
+            <button id="update" class="primary-button" type="button" disabled>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m0 0 5-5m-5 5-5-5M5 15v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4"/></svg>
+              <span>Checking</span>
+            </button>
+          </section>
+        </div>
+      </div>
+
+      <section class="card credential-card" aria-labelledby="credentials-title">
+        <div class="section-heading">
+          <div>
+            <span class="eyebrow">Credentials</span>
+            <h2 id="credentials-title">Codex auth</h2>
+          </div>
+          <span id="credential-badge" class="badge">Checking</span>
+        </div>
+        <div class="credential-body">
+          <div class="credential-copy">
+            <strong id="credential-summary">Checking the active credential</strong>
+            <p id="credential-detail">RuneShop stores imported credentials with owner-only permissions.</p>
+          </div>
+          <input id="auth-file" class="file-input" type="file" accept=".json,application/json">
+          <button id="choose-auth" class="quiet-button" type="button">Import auth.json</button>
+        </div>
+      </section>
+
+      <section class="card setup-card" aria-labelledby="setup-title">
+        <div class="section-heading">
+          <div>
+            <span class="eyebrow">Client setup</span>
+            <h2 id="setup-title">Codex provider</h2>
+          </div>
+        </div>
+        <div class="setup-block">
+          <div class="code-heading">
+            <span class="mono">~/.codex/config.toml</span>
+            <button id="copy-config" class="quiet-button" type="button">Copy</button>
+          </div>
+          <pre id="client-config" class="config mono"></pre>
+          <p class="setup-note muted"><span class="mono">PWD</span> is used only as a local client identifier and is not forwarded upstream.</p>
+        </div>
+      </section>
+
+      <section class="card activity-card" aria-labelledby="activity-title">
+        <div class="section-heading">
+          <span id="activity-title" class="eyebrow">Recent activity</span>
+          <span id="activity-updated" class="muted">No requests yet</span>
+        </div>
+        <ol id="activity" class="activity">
+          <li class="empty">Requests will appear here.</li>
+        </ol>
+      </section>
+    </main>
+
+    <dialog id="update-dialog" class="dialog" aria-labelledby="dialog-title">
+      <form method="dialog">
+        <h2 id="dialog-title">Update RuneShop?</h2>
+        <p id="dialog-copy" class="muted"></p>
+        <ol id="commits" class="commits"></ol>
+        <p id="update-progress" class="update-progress" role="status" hidden></p>
+        <div class="dialog-actions">
+          <button id="cancel-update" class="quiet-button" value="cancel">Cancel</button>
+          <button id="confirm-update" class="primary-button" value="default" type="button">Confirm update</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="auth-dialog" class="dialog" aria-labelledby="auth-dialog-title">
+      <form method="dialog">
+        <h2 id="auth-dialog-title">Replace Codex credentials?</h2>
+        <p class="muted">RuneShop will validate this file before replacing the active credential. The current file is retained as one backup.</p>
+        <p id="auth-filename" class="credential-file mono"></p>
+        <p id="auth-progress" class="update-progress" role="status" hidden></p>
+        <div class="dialog-actions">
+          <button id="cancel-auth" class="quiet-button" value="cancel">Cancel</button>
+          <button id="confirm-auth" class="primary-button" value="default" type="button">Import credential</button>
+        </div>
+      </form>
+    </dialog>
+
+    <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+  </body>
+</html>

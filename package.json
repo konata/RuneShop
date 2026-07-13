@@ -1,0 +1,28 @@
+{
+  "name": "runeshop",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "bun run src/server.ts",
+    "dev": "bun --watch src/server.ts",
+    "test": "bun test",
+    "check": "tsc --noEmit && bun test",
+    "service:install": "bun run scripts/service.ts install",
+    "service:start": "bun run scripts/service.ts start",
+    "service:stop": "bun run scripts/service.ts stop",
+    "service:status": "bun run scripts/service.ts status",
+    "service:logs": "bun run scripts/service.ts logs",
+    "service:restart": "bun run scripts/service.ts restart",
+    "service:uninstall": "bun run scripts/service.ts uninstall",
+    "update:check": "bun run scripts/release.ts status",
+    "update:start": "bun run scripts/release.ts start"
+  },
+  "dependencies": {
+    "hono": "^4.10.7"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "typescript": "^5.9.3"
+  }
+}

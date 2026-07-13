@@ -1,0 +1,6 @@
+node_modules/
+.artibot/
+.env
+*.log
+.DS_Store
+art.png

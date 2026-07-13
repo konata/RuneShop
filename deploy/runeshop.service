@@ -1,0 +1,22 @@
+[Unit]
+Description=RuneShop
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+User=@UID@
+Group=@GID@
+WorkingDirectory=@ROOT@
+Environment=HOME=@HOME@
+Environment=RUNESHOP_SERVICE=systemd
+ExecStart=@BUN@ run start
+Restart=always
+RestartSec=3
+KillSignal=SIGINT
+TimeoutStopSec=30
+UMask=0077
+SyslogIdentifier=runeshop
+
+[Install]
+WantedBy=multi-user.target
