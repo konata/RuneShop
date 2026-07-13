@@ -152,14 +152,15 @@ function activity(events) {
     return
   }
 
-  for (const event of events.slice(0, 8)) {
+  for (const event of events) {
     const row = document.createElement("li")
     const label = document.createElement("span")
     const client = document.createElement("span")
     const model = document.createElement("span")
     const time = document.createElement("time")
     label.className = "event"
-    label.textContent = eventLabel(event)
+    const count = event.count > 1 ? ` × ${event.count}` : ""
+    label.textContent = `${eventLabel(event)}${count}`
     label.title = label.textContent
     const clientId = typeof event.client === "string" && event.client.trim() ? event.client.trim() : "unknown"
     client.className = "client"

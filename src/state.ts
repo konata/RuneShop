@@ -1,7 +1,8 @@
-import { existsSync, readFileSync } from "node:fs";
+import { chmodSync, existsSync, readFileSync } from "node:fs";
 import { chmod, mkdir, rename, rm, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
+import { Database } from "bun:sqlite";
 
 type LogLevel = "debug" | "info" | "warn" | "error" | "silent";
 type Settings = { version: 1; port: number; admin_password_hash: string };
@@ -14,8 +15,9 @@ type RequestEvent = {
   duration: number;
   detail?: string;
 };
-type Period = { key: string; requests: number; failures: number };
-type Store = { day: Period; month: Period; activity: RequestEvent[] };
+type Activity = RequestEvent & { count: number };
+const historyLimit = 10_000;
+const activityLimit = 30;
 
 export type Config = {
   configured: boolean;
@@ -31,16 +33,20 @@ export async function read<T>(path: string) {
   return JSON.parse(await Bun.file(path).text()) as T;
 }
 
-export async function persist(path: string, value: unknown) {
+async function replace(path: string, source: string) {
   const directory = dirname(path);
   const temporary = `${path}.${process.pid}.${crypto.randomUUID()}.tmp`;
   await mkdir(directory, { recursive: true, mode: 0o700 });
   await chmod(directory, 0o700);
   try {
-    await writeFile(temporary, `${JSON.stringify(value, null, 2)}\n`, { mode: 0o600 });
+    await writeFile(temporary, source, { mode: 0o600 });
     await rename(temporary, path);
     await chmod(path, 0o600);
   } finally { await rm(temporary, { force: true }); }
+}
+
+export async function persist(path: string, value: unknown) {
+  await replace(path, `${JSON.stringify(value, null, 2)}\n`);
 }
 
 function port(value: unknown) {
@@ -103,54 +109,85 @@ function keys(now: Date) {
   return { day, month: day.slice(0, 7) };
 }
 
-const period = (key: string): Period => ({ key, requests: 0, failures: 0 });
-function empty(now: Date): Store {
-  const current = keys(now);
-  return { day: period(current.day), month: period(current.month), activity: [] };
+function summary(period: string, counts?: { requests: number; failures: number }) {
+  const { requests = 0, failures = 0 } = counts ?? {};
+  return { period, requests, failures, success_rate: requests ? Math.round((requests - failures) / requests * 1000) / 10 : 100 };
 }
 
-function summary({ key: period, requests, failures }: Period) {
-  return { period, requests, failures, success_rate: requests ? Math.round((requests - failures) / requests * 1000) / 10 : 100 };
+function squash(events: RequestEvent[]) {
+  const activity: Activity[] = [];
+  for (const event of events) {
+    const previous = activity.at(-1);
+    const failed = event.status < 200 || event.status >= 400;
+    if (previous && previous.status === event.status && previous.model === event.model && previous.client === event.client
+      && (!failed || previous.detail === event.detail)) {
+      previous.count++;
+      continue;
+    }
+    if (activity.length === activityLimit) break;
+    activity.push({ ...event, count: 1 });
+  }
+  return activity;
 }
 
 export class RequestState {
   readonly started: Date;
-  private readonly file: string;
-  private readonly ready: Promise<void>;
-  private store: Store;
-  private timer?: ReturnType<typeof setTimeout>;
+  private readonly database: Database;
+  private readonly write: (event: RequestEvent, day: string, month: string, failed: number) => void;
 
   constructor(directory: string, private readonly now = () => new Date()) {
     this.started = now();
-    this.file = join(directory, "admin.json");
-    this.store = empty(this.started);
-    this.ready = this.load();
-  }
+    const path = join(directory, "state.sqlite");
+    this.database = new Database(path, { create: true, strict: true });
+    this.database.exec(`
+      CREATE TABLE IF NOT EXISTS periods (
+        period TEXT PRIMARY KEY,
+        requests INTEGER NOT NULL,
+        failures INTEGER NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS requests (
+        id INTEGER PRIMARY KEY,
+        event TEXT NOT NULL
+      );
+    `);
+    chmodSync(path, 0o600);
 
-  private async load() { try { this.store = await read<Store>(this.file); this.rotate(); } catch {} }
-  private rotate() {
-    const current = keys(this.now());
-    if (this.store.day.key !== current.day) this.store.day = period(current.day);
-    if (this.store.month.key !== current.month) this.store.month = period(current.month);
+    const increment = this.database.query(`
+      INSERT INTO periods (period, requests, failures) VALUES (?, 1, ?)
+      ON CONFLICT (period) DO UPDATE SET
+        requests = requests + 1,
+        failures = failures + excluded.failures
+    `);
+    const insert = this.database.query("INSERT INTO requests (event) VALUES (?)");
+    const trim = this.database.query("DELETE FROM requests WHERE id <= last_insert_rowid() - ?");
+    this.write = this.database.transaction((event: RequestEvent, day: string, month: string, failed: number) => {
+      increment.run(day, failed);
+      increment.run(month, failed);
+      insert.run(JSON.stringify(event));
+      trim.run(historyLimit);
+    });
   }
 
   async record(event: RequestEvent) {
-    await this.ready;
-    this.rotate();
+    const { day, month } = keys(this.now());
     const failed = event.status < 200 || event.status >= 400;
-    for (const period of [this.store.day, this.store.month]) { period.requests++; if (failed) period.failures++; }
-    this.store.activity = [event, ...this.store.activity].slice(0, 30);
-    if (this.timer) clearTimeout(this.timer);
-    this.timer = setTimeout(() => void persist(this.file, this.store), 250);
+    this.write(event, day, month, Number(failed));
   }
 
   async snapshot() {
-    await this.ready;
-    this.rotate();
+    const { day, month } = keys(this.now());
+    const counts = this.database.query<{ requests: number; failures: number }, [string]>(
+      "SELECT requests, failures FROM periods WHERE period = ?"
+    );
+    const history = this.database.query<{ event: string }, [number]>(
+      "SELECT event FROM requests ORDER BY id DESC LIMIT ?"
+    ).all(historyLimit).map(({ event }) => JSON.parse(event) as RequestEvent);
     return {
       started_at: this.started.toISOString(),
       uptime_seconds: Math.floor((this.now().getTime() - this.started.getTime()) / 1000),
-      today: summary(this.store.day), month: summary(this.store.month), activity: this.store.activity
+      today: summary(day, counts.get(day) ?? undefined),
+      month: summary(month, counts.get(month) ?? undefined),
+      activity: squash(history)
     };
   }
 }
