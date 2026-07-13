@@ -2,14 +2,13 @@ import { expect, test } from "bun:test";
 import { mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { adminHash, initialize, load } from "../src/config";
+import { adminHash, initialize, load } from "../src/state";
 
 test("persists bootstrap settings and hashes the admin password", async () => {
   const directory = await mkdtemp(join(tmpdir(), "runeshop-config-"));
   try {
     const initial = load(directory, ["--port", "4321"]);
     expect(initial.configured).toBe(false);
-    expect(initial.host).toBe("0.0.0.0");
     expect(initial.port).toBe(4321);
 
     await initialize(initial, await adminHash("admin-secret"));

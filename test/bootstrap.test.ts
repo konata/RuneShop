@@ -3,13 +3,12 @@ import { mkdtemp, readFile, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Hono } from "hono";
-import { mountBootstrap } from "../src/bootstrap";
-import { load } from "../src/config";
-import { configure } from "../src/log";
+import { mountBootstrap } from "../src/admin";
+import { configure, load } from "../src/state";
 
 test.serial("bootstraps RuneShop behind a one-time token", async () => {
   const directory = await mkdtemp(join(tmpdir(), "runeshop-bootstrap-"));
-  const config = load(directory, []);
+  const config = { ...load(directory, []), managed: false };
   const app = new Hono();
   const original = globalThis.fetch;
   configure("silent");
@@ -34,6 +33,7 @@ test.serial("bootstraps RuneShop behind a one-time token", async () => {
     const script = await (await app.request("http://localhost/bootstrap/app.js")).text();
     expect(script).toContain("sessionStorage.getItem(storageKey)");
     expect(script).toContain("byId(\"token-field\").hidden = !needsToken");
+    expect((await app.request("http://localhost/base.css")).status).toBe(200);
 
     const denied = await app.request("http://localhost/bootstrap/api/setup", {
       method: "POST",

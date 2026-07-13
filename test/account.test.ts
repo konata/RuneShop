@@ -37,7 +37,6 @@ test.serial("uses only upstream account credentials for status requests", async 
   await writeFile(authFile, JSON.stringify({ access_token: "upstream", account_id: "account", expired: "2099-01-01T00:00:00Z" }));
   const config = configuration({
     authFile,
-    authDir: directory,
     stateDir: directory,
   });
   const original = globalThis.fetch;

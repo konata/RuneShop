@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { RelayState } from "../src/state";
@@ -28,22 +28,5 @@ test("tracks daily and monthly relay activity", async () => {
   expect(stored.day.requests).toBe(1);
   expect(stored.month.requests).toBe(3);
   expect((await stat(join(directory, "admin.json"))).mode & 0o777).toBe(0o600);
-  await rm(directory, { recursive: true, force: true });
-});
-
-test("migrates legacy daily statistics into the current month", async () => {
-  const directory = await mkdtemp(join(tmpdir(), "runeshop-state-"));
-  const now = new Date("2026-07-10T12:00:00Z");
-  await writeFile(join(directory, "admin.json"), JSON.stringify({
-    date: "2026-07-10",
-    requests: 4,
-    failures: 1,
-    activity: []
-  }));
-
-  const snapshot = await new RelayState(directory, () => now).snapshot();
-  expect(snapshot.today.requests).toBe(4);
-  expect(snapshot.month.requests).toBe(4);
-  expect(snapshot.month.success_rate).toBe(75);
   await rm(directory, { recursive: true, force: true });
 });

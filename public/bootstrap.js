@@ -2,7 +2,7 @@ const byId = (id) => document.getElementById(id)
 const form = byId("bootstrap-form")
 const token = byId("bootstrap-token")
 const button = byId("setup-button")
-const error = byId("setup-error")
+const setupError = byId("setup-error")
 const service = byId("install-service")
 const serviceError = byId("service-error")
 const file = byId("auth-file")
@@ -14,9 +14,9 @@ function failure(node, cause) {
   node.hidden = false
 }
 
-async function response(request) {
-  const body = await request.json().catch(() => ({}))
-  if (!request.ok) throw new Error(body.error?.message || `${request.status} ${request.statusText}`)
+async function decode(response) {
+  const body = await response.json().catch(() => ({}))
+  if (!response.ok) throw new Error(body.error?.message || `${response.status} ${response.statusText}`)
   return body
 }
 
@@ -24,8 +24,8 @@ async function waitForAdmin() {
   for (let attempt = 0; attempt < 120; attempt++) {
     await new Promise((resolve) => setTimeout(resolve, 1500))
     try {
-      const request = await fetch("/admin/login", { cache: "no-store" })
-      if (request.ok && new URL(request.url).pathname === "/admin/login") return location.replace("/admin/login")
+      const response = await fetch("/admin/login", { cache: "no-store" })
+      if (response.ok && new URL(response.url).pathname === "/admin/login") return location.replace("/admin/login")
     } catch {}
   }
 }
@@ -61,13 +61,13 @@ file.addEventListener("change", () => {
 
 form.addEventListener("submit", async (event) => {
   event.preventDefault()
-  error.hidden = true
+  setupError.hidden = true
   bootstrapToken = token.value
   sessionStorage.setItem(storageKey, bootstrapToken)
   button.disabled = true
   button.textContent = "Saving…"
   try {
-    const body = await response(await fetch("/bootstrap/api/setup", {
+    const body = await decode(await fetch("/bootstrap/api/setup", {
       method: "POST",
       cache: "no-store",
       headers: { "x-runeshop-bootstrap": bootstrapToken },
@@ -75,7 +75,7 @@ form.addEventListener("submit", async (event) => {
     }))
     complete(body.managed, body.systemd, body.manual_systemd, body.manual_systemd_command)
   } catch (cause) {
-    failure(error, cause)
+    failure(setupError, cause)
     button.disabled = false
     button.textContent = "Save configuration"
   }
@@ -89,7 +89,7 @@ service.addEventListener("click", async () => {
   service.textContent = "Installing…"
   serviceError.hidden = true
   try {
-    await response(await fetch("/bootstrap/api/service", {
+    await decode(await fetch("/bootstrap/api/service", {
       method: "POST",
       cache: "no-store",
       headers: { "x-runeshop-bootstrap": bootstrapToken }
@@ -108,6 +108,6 @@ service.addEventListener("click", async () => {
 token.value = bootstrapToken
 byId("endpoint").textContent = location.host
 void fetch("/bootstrap/api/status", { cache: "no-store" })
-  .then(response)
+  .then(decode)
   .then((status) => status.configured && complete(status.managed, status.systemd, status.manual_systemd, status.manual_systemd_command))
   .catch(() => undefined)

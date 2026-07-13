@@ -4,8 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Hono } from "hono";
 import { mountAdmin } from "../src/admin";
-import { configure } from "../src/log";
-import { RelayState } from "../src/state";
+import { configure, RelayState } from "../src/state";
 import { configuration } from "./config";
 
 test("protects the admin page with a cookie session and CSRF token", async () => {
@@ -15,7 +14,6 @@ test("protects the admin page with a cookie session and CSRF token", async () =>
   const config = configuration({
     adminPasswordHash: await Bun.password.hash("admin-secret"),
     authFile: join(directory, "auth.json"),
-    authDir: directory,
     stateDir: directory
   });
   mountAdmin(app, config, new RelayState(directory));
@@ -58,8 +56,10 @@ test("protects the admin page with a cookie session and CSRF token", async () =>
     expect(javascript).toContain('env_key = "PWD"');
     expect(javascript).not.toContain("RUNESHOP_API_KEY");
     expect(javascript).toContain("clientId.slice(0, 14)");
+    expect(javascript).not.toContain("importable");
     expect(javascript).toContain("if (loading) return");
     expect(javascript).toContain('request("/admin/api/status").then(status).catch(offline)');
+    expect((await app.request("http://localhost/base.css")).status).toBe(200);
 
     const session = await app.request("http://localhost/admin/api/session", { headers: { cookie } });
     const { csrf } = await session.json() as { csrf: string };

@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { normalize } from "../src/normalize";
+import { normalize } from "../src/codex";
 
 test("preserves native Codex responses requests", () => {
   const body = JSON.stringify({

@@ -1,22 +1,12 @@
-const byId = (id) => document.getElementById(id)
-const ui = Object.fromEntries([
-  "revision", "health",
-  "primary-percent", "primary-reset", "primary-progress", "plan", "weekly", "lifetime", "credits",
-  "today-requests", "today-success", "month-requests", "month-success", "uptime", "update-badge", "update-summary", "update-revisions", "update",
-  "activity", "activity-updated", "client-config", "copy-config", "update-dialog", "dialog-copy", "commits",
-  "cancel-update", "confirm-update", "update-progress", "credential-badge", "credential-summary", "credential-detail",
-  "auth-file", "choose-auth", "auth-dialog", "auth-filename", "auth-progress", "cancel-auth", "confirm-auth", "logout", "toast"
-].map((id) => [id, byId(id)]))
+const ui = Object.fromEntries([...document.querySelectorAll("[id]")].map((node) => [node.id, node]))
 
 let revision
 let csrf
-let credential
 let authFile
 let loading = false
 
 function updateText(value) {
-  const label = ui.update.querySelector("span")
-  if (label) label.textContent = value
+  ui.update.querySelector("span").textContent = value
 }
 
 async function request(path, init) {
@@ -80,16 +70,7 @@ function usage(account) {
 }
 
 function credentials(status) {
-  credential = status
-  ui["choose-auth"].disabled = !status.importable
   ui["credential-badge"].className = "badge"
-  if (!status.importable) {
-    ui["credential-badge"].textContent = "Read only"
-    ui["credential-badge"].classList.add("warning")
-    ui["credential-summary"].textContent = status.configured ? "Credential is active" : "No managed credential"
-    ui["credential-detail"].textContent = "Browser imports require RuneShop's managed credential path."
-    return
-  }
   if (!status.configured) {
     ui["credential-badge"].textContent = "Missing"
     ui["credential-badge"].classList.add("warning")
@@ -266,11 +247,6 @@ async function reconnect(target) {
   ui["update-progress"].textContent = "Restart is taking longer than expected. Refresh this page shortly."
 }
 
-function chooseAuth() {
-  if (!credential?.importable) return
-  ui["auth-file"].click()
-}
-
 function confirmAuth() {
   const [file] = ui["auth-file"].files
   if (!file) return
@@ -341,8 +317,6 @@ async function copy(value, message) {
   toast(message)
 }
 
-const copyConfig = () => copy(config(), "Configuration copied")
-
 function toast(message) {
   ui.toast.textContent = message
   ui.toast.hidden = false
@@ -356,7 +330,9 @@ async function load() {
   const tasks = [
     request("/admin/api/status").then(status).catch(offline),
     request("/admin/api/account").then(usage).catch((error) => toast(`Account status: ${error.message}`)),
-    request("/admin/api/update").then(update).catch((error) => update({ current: "--", remote: "--", behind: 0, ahead: 0, dirty: false, supported: false, error: error.message })),
+    request("/admin/api/update").then(update).catch((error) => update({
+      current: "--", remote: "--", behind: 0, ahead: 0, dirty: false, supported: false, error: error.message
+    })),
     request("/admin/api/credentials").then(credentials).catch((error) => toast(`Credential status: ${error.message}`))
   ]
   try {
@@ -374,8 +350,8 @@ function offline(error) {
 
 ui.update.addEventListener("click", showUpdate)
 ui["confirm-update"].addEventListener("click", startUpdate)
-ui["copy-config"].addEventListener("click", copyConfig)
-ui["choose-auth"].addEventListener("click", chooseAuth)
+ui["copy-config"].addEventListener("click", () => copy(config(), "Configuration copied"))
+ui["choose-auth"].addEventListener("click", () => ui["auth-file"].click())
 ui["auth-file"].addEventListener("change", confirmAuth)
 ui["confirm-auth"].addEventListener("click", importAuth)
 ui["auth-dialog"].addEventListener("close", () => {

@@ -1,19 +1,3 @@
-@font-face {
-  font-family: "Inter";
-  font-style: normal;
-  font-weight: 100 900;
-  font-display: swap;
-  src: url("/admin/fonts/inter-latin.woff2") format("woff2");
-}
-
-@font-face {
-  font-family: "JetBrains Mono";
-  font-style: normal;
-  font-weight: 100 800;
-  font-display: swap;
-  src: url("/admin/fonts/jetbrains-mono-latin.woff2") format("woff2");
-}
-
 :root {
   color-scheme: light;
   --page: oklch(0.95 0.006 106);
@@ -32,22 +16,10 @@
   --sans: "Inter", ui-sans-serif, system-ui, sans-serif;
 }
 
-* { box-sizing: border-box; }
-
 body {
-  margin: 0;
   min-width: 280px;
   background: var(--page);
-  color: var(--ink);
-  font-family: var(--sans);
-  font-size: 14px;
-  line-height: 1.5;
-  -webkit-font-smoothing: antialiased;
-  text-rendering: optimizeLegibility;
 }
-
-button { font: inherit; }
-input { font: inherit; }
 
 button:focus-visible,
 dialog:focus-visible {
@@ -55,7 +27,6 @@ dialog:focus-visible {
   outline-offset: 2px;
 }
 
-.mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
 .muted { color: var(--muted); }
 .eyebrow { display: block; color: var(--muted); font-size: 12px; font-weight: 500; letter-spacing: 0; line-height: 16px; text-transform: uppercase; }
 .eyebrow.inverse { color: color-mix(in oklch, white 55%, transparent); }

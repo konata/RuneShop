@@ -2,16 +2,9 @@ import { expect, test } from "bun:test";
 import { mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { credentialStatus, importCredential, parse } from "../src/token";
-import { configuration } from "./config";
+import { credentialStatus, fresh, importCredential, parse } from "../src/account";
 
-function config(directory: string, authFile = join(directory, "auth.json")) {
-  return configuration({
-    authFile,
-    authDir: directory,
-    stateDir: directory,
-  });
-}
+const auth = (directory: string) => join(directory, "auth.json");
 
 test("parses RuneShop codex token files", () => {
   const token = parse({
@@ -26,7 +19,6 @@ test("parses RuneShop codex token files", () => {
   expect(token?.access).toBe("access");
   expect(token?.refresh).toBe("refresh");
   expect(token?.account).toBe("account");
-  expect(token?.email).toBe("user@example.com");
 });
 
 test("parses Codex auth cache token files", () => {
@@ -45,8 +37,25 @@ test("parses Codex auth cache token files", () => {
   expect(token?.access).toBe("access");
   expect(token?.refresh).toBe("refresh");
   expect(token?.account).toBe("account");
-  expect(token?.email).toBe("user@example.com");
   expect(token?.expires).toBeInstanceOf(Date);
+});
+
+test.serial("refreshes and persists an expired credential", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "runeshop-credential-"));
+  const path = auth(directory);
+  await writeFile(path, JSON.stringify({ access_token: "old", refresh_token: "refresh", account_id: "account", expired: "2000-01-01T00:00:00Z" }));
+  const original = globalThis.fetch;
+  globalThis.fetch = (async (input) => {
+    expect(String(input)).toBe("https://auth.openai.com/oauth/token");
+    return Response.json({ access_token: "new", refresh_token: "rotated", expires_in: 3600 });
+  }) as typeof fetch;
+  try {
+    expect((await fresh(path)).access).toBe("new");
+    expect(JSON.parse(await readFile(path, "utf8")).refresh_token).toBe("rotated");
+  } finally {
+    globalThis.fetch = original;
+    await rm(directory, { recursive: true, force: true });
+  }
 });
 
 test.serial("validates and atomically imports a managed Codex credential", async () => {
@@ -61,7 +70,7 @@ test.serial("validates and atomically imports a managed Codex credential", async
   }) as typeof fetch;
 
   try {
-    const imported = await importCredential(config(directory), JSON.stringify({
+    const imported = await importCredential(authFile, JSON.stringify({
       auth_mode: "chatgpt",
       tokens: {
         access_token: "new-access",
@@ -86,7 +95,7 @@ test.serial("validates and atomically imports a managed Codex credential", async
     expect(stored).not.toContain("private@example.com");
     expect(await readFile(`${authFile}.backup`, "utf8")).toContain('"old"');
     expect((await stat(authFile)).mode & 0o777).toBe(0o600);
-    expect((await credentialStatus(config(directory))).configured).toBe(true);
+    expect((await credentialStatus(authFile)).configured).toBe(true);
   } finally {
     globalThis.fetch = original;
     await rm(directory, { recursive: true, force: true });
@@ -103,7 +112,7 @@ test.serial("retries transient credential validation once", async () => {
   }) as typeof fetch;
 
   try {
-    const imported = await importCredential(config(directory), JSON.stringify({
+    const imported = await importCredential(auth(directory), JSON.stringify({
       access_token: "access",
       refresh_token: "refresh",
       account_id: "account",
@@ -111,38 +120,6 @@ test.serial("retries transient credential validation once", async () => {
     }));
     expect(imported.configured).toBe(true);
     expect(calls).toBe(2);
-  } finally {
-    globalThis.fetch = original;
-    await rm(directory, { recursive: true, force: true });
-  }
-});
-
-test("refuses to import credentials outside the managed auth directory", async () => {
-  const directory = await mkdtemp(join(tmpdir(), "runeshop-credential-"));
-  try {
-    await expect(importCredential(config(directory, join(tmpdir(), "external-auth.json")), "{}"))
-      .rejects.toThrow("managed auth path");
-  } finally {
-    await rm(directory, { recursive: true, force: true });
-  }
-});
-
-test.serial("reports credentials without an OAuth client as not refreshable", async () => {
-  const directory = await mkdtemp(join(tmpdir(), "runeshop-credential-"));
-  const original = globalThis.fetch;
-  globalThis.fetch = (async (_input, _init) => Response.json({ plan_type: "pro" })) as typeof fetch;
-
-  try {
-    const imported = await importCredential(
-      { ...config(directory), client: "" },
-      JSON.stringify({
-        access_token: "access",
-        refresh_token: "refresh",
-        account_id: "account",
-        expired: "2099-01-01T00:00:00Z"
-      })
-    );
-    expect(imported.refreshable).toBe(false);
   } finally {
     globalThis.fetch = original;
     await rm(directory, { recursive: true, force: true });

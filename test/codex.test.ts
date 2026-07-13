@@ -3,21 +3,20 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { models, responseHeaders, responses, upstreamHeaders } from "../src/codex";
-import { configure } from "../src/log";
-import { RelayState } from "../src/state";
+import { configure, RelayState } from "../src/state";
 import { configuration } from "./config";
 
 configure("silent");
 
-const config = configuration({ idleTimeout: 300, client: "" });
+const config = configuration();
 
 test("returns OpenAI model list by default", async () => {
-  const payload = await models(config).json();
+  const payload = await models().json();
   expect(payload.data[0].id).toBe("gpt-5.6-sol");
 });
 
 test("returns Codex client model metadata when requested", async () => {
-  const payload = await models(config, true).json();
+  const payload = await models(true).json();
   expect(payload.models[0].slug).toBe("gpt-5.6-sol");
   expect(payload.models[0].supported_reasoning_levels.map((level: { effort: string }) => level.effort)).toContain("xhigh");
 });
@@ -37,7 +36,7 @@ test("forwards native Codex user agent upstream", () => {
     }
   });
 
-  const headers = upstreamHeaders(request, config, { access: "access", account: "account" }, true, true);
+  const headers = upstreamHeaders(request, { access: "access", account: "account" }, true, true);
   expect(headers.get("user-agent")).toBe("codex-native/1.0");
   expect(headers.get("chatgpt-account-id")).toBe("account");
   expect(headers.get("authorization")).toBe("Bearer access");
@@ -58,7 +57,7 @@ test("uses configured user agent for generic clients", () => {
     }
   });
 
-  const headers = upstreamHeaders(request, config, { access: "access", account: "" }, true, false);
+  const headers = upstreamHeaders(request, { access: "access", account: "" }, true, false);
   expect(headers.get("user-agent")).toBe("codex_cli_rs");
   expect(headers.has("x-openai-subagent")).toBe(false);
 });

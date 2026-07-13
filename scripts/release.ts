@@ -1,5 +1,5 @@
-import { load } from "../src/config";
-import { Updater } from "../src/update";
+import { Updater } from "../src/service";
+import { load } from "../src/state";
 
 const updater = new Updater(load());
 const action = Bun.argv[2] || "status";

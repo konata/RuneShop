@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { AdminSessions } from "../src/session";
+import { AdminSessions } from "../src/admin";
 
 test("creates short-lived admin sessions without retaining the password as the token", async () => {
   const sessions = new AdminSessions(await Bun.password.hash("admin-secret"));

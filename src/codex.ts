@@ -1,28 +1,97 @@
-import type { Config } from "./config";
-import { elapsed, emit } from "./log";
-import { native as nativeRequest, normalize } from "./normalize";
-import type { RelayState } from "./state";
-import { fresh, type CodexToken } from "./token";
+import { authorization, fresh, upstream, type CodexToken } from "./account";
+import { elapsed, emit, type Config, type RelayState } from "./state";
 
-const requestMetadata = new Set([
-  "version",
-  "openai-beta",
-  "x-client-request-id",
-  "x-oai-attestation",
-  "conversation_id",
-  "session_id",
-  "thread-id",
-  "traceparent",
-  "tracestate"
+type Payload = Record<string, unknown>;
+const accepted = new Set([
+  "input", "instructions", "metadata", "model", "prompt_cache_key", "reasoning",
+  "service_tier", "stream", "text", "tool_choice", "tools"
 ]);
+const forced: Payload = { store: false, include: ["reasoning.encrypted_content"], parallel_tool_calls: true };
+const aliases = new Map([["web_search_preview", "web_search"], ["web_search_preview_2025_03_11", "web_search"]]);
 
-const nativeMetadataPrefixes = ["x-codex-", "x-openai-", "x-responsesapi-"];
-const credentialHeaders = new Set(["authorization", "cookie", "proxy-authorization", "x-api-key"]);
-const credentialSuffixes = ["-authorization", "-api-key", "-access-token", "-refresh-token", "-session-token"];
+function native(headers: Headers) {
+  return headers.has("originator") || [...headers.keys()].some((header) => header.startsWith("x-codex-"));
+}
 
-const responseMetadata = new Set(["cache-control", "cf-ray", "content-type", "retry-after", "x-request-id"]);
-const responseMetadataPrefixes = ["openai-", "x-codex-", "x-models-", "x-openai-", "x-ratelimit-", "x-reasoning-"];
+function object(value: unknown): Payload | null {
+  return value && typeof value === "object" && !Array.isArray(value) ? value as Payload : null;
+}
 
+function tool(value: unknown, path: string, changes: string[]) {
+  const source = object(value);
+  const type = typeof source?.type === "string" ? aliases.get(source.type) : undefined;
+  if (!source || !type) return value;
+  changes.push(`rewrite:${path}.type`);
+  return { ...source, type };
+}
+
+function rewrite(field: string, value: unknown, changes: string[]) {
+  if (field === "input") {
+    if (typeof value === "string") {
+      changes.push("rewrite:input");
+      return [{ type: "message", role: "user", content: [{ type: "input_text", text: value }] }];
+    }
+    if (!Array.isArray(value)) return value;
+    let changed = false;
+    const messages = value.map((message) => {
+      const source = object(message);
+      if (!source || source.role !== "system") return message;
+      changed = true;
+      return { ...source, role: "developer" };
+    });
+    if (changed) changes.push("rewrite:input.role");
+    return messages;
+  }
+  if (field === "reasoning") {
+    const source = object(value);
+    if (!source) return value;
+    for (const name of Object.keys(source)) if (name !== "effort") changes.push(`drop:reasoning.${name}`);
+    return typeof source.effort === "string" ? { effort: source.effort } : undefined;
+  }
+  if (field === "service_tier") {
+    if (value === "priority") return value;
+    changes.push("drop:service_tier");
+    return;
+  }
+  if (field === "tools") return Array.isArray(value) ? value.map((entry, index) => tool(entry, `tools.${index}`, changes)) : value;
+  if (field === "tool_choice") {
+    const choice = object(tool(value, "tool_choice", changes));
+    if (!choice || !Array.isArray(choice.tools)) return choice ?? value;
+    return { ...choice, tools: choice.tools.map((entry, index) => tool(entry, `tool_choice.tools.${index}`, changes)) };
+  }
+  return value;
+}
+
+export function normalize(body: string, headers = new Headers()) {
+  const payload = JSON.parse(body) as Payload;
+  const stream = payload.stream === true;
+  const model = typeof payload.model === "string" ? payload.model : undefined;
+  if (native(headers)) return { body, stream, model, native: true, changes: [] };
+  const changes: string[] = [];
+  const normalized: Payload = {};
+  for (const [field, value] of Object.entries(payload)) {
+    if (Object.hasOwn(forced, field)) continue;
+    if (!accepted.has(field)) { changes.push(`drop:${field}`); continue; }
+    const result = rewrite(field, value, changes);
+    if (result !== undefined) normalized[field] = result;
+  }
+  for (const [field, value] of Object.entries(forced)) {
+    if (JSON.stringify(payload[field]) !== JSON.stringify(value)) changes.push(`${payload[field] === undefined ? "set" : "rewrite"}:${field}`);
+    normalized[field] = value;
+  }
+  return { body: changes.length ? JSON.stringify(normalized) : body, stream, model, native: false, changes };
+}
+
+type RequestBody = ReturnType<typeof normalize>;
+const requestNames = new Set([
+  "version", "openai-beta", "x-client-request-id", "x-oai-attestation", "conversation_id",
+  "session_id", "thread-id", "traceparent", "tracestate"
+]);
+const requestPrefixes = ["x-codex-", "x-openai-", "x-responsesapi-"];
+const secretNames = new Set(["authorization", "cookie", "proxy-authorization", "x-api-key"]);
+const secretSuffixes = ["-authorization", "-api-key", "-access-token", "-refresh-token", "-session-token"];
+const responseNames = new Set(["cache-control", "cf-ray", "content-type", "retry-after", "x-request-id"]);
+const responsePrefixes = ["openai-", "x-codex-", "x-models-", "x-openai-", "x-ratelimit-", "x-reasoning-"];
 const levels = [
   { effort: "low", description: "Fast responses with lighter reasoning" },
   { effort: "medium", description: "Balances speed and reasoning depth" },
@@ -30,171 +99,102 @@ const levels = [
   { effort: "xhigh", description: "Extra high reasoning depth for complex work" }
 ];
 
-function json(body: unknown) {
-  return new Response(JSON.stringify(body), { headers: { "content-type": "application/json; charset=utf-8" } });
+function allowed(name: string, codex: boolean) {
+  if (secretNames.has(name) || secretSuffixes.some((suffix) => name.endsWith(suffix))) return false;
+  return requestNames.has(name) || codex && requestPrefixes.some((prefix) => name.startsWith(prefix));
 }
 
-function copy(headers: Headers, allowed: (name: string) => boolean) {
-  const out = new Headers();
-  for (const [name, value] of headers) if (allowed(name)) out.set(name, value);
-  return out;
-}
-
-function requestHeader(name: string, native: boolean) {
-  if (credentialHeaders.has(name) || credentialSuffixes.some((suffix) => name.endsWith(suffix))) return false;
-  return requestMetadata.has(name) || (native && nativeMetadataPrefixes.some((prefix) => name.startsWith(prefix)));
-}
-
-function responseHeader(name: string) {
-  return responseMetadata.has(name) || responseMetadataPrefixes.some((prefix) => name.startsWith(prefix));
-}
-
-function trace(request: Request) {
-  return request.headers.get("x-client-request-id") || crypto.randomUUID();
-}
-
-export function upstreamHeaders(request: Request, config: Config, token: Pick<CodexToken, "access" | "account">, stream: boolean, native = false) {
-  const headers = copy(request.headers, (name) => requestHeader(name, native));
-  headers.set("authorization", `Bearer ${token.access}`);
+export function upstreamHeaders(request: Request, token: Pick<CodexToken, "access" | "account">, stream: boolean, codex = false) {
+  const headers = authorization(token);
+  for (const [name, value] of request.headers) if (allowed(name, codex)) headers.set(name, value);
   headers.set("content-type", "application/json");
   headers.set("accept", stream ? "text/event-stream" : "application/json");
-  headers.set("user-agent", (native && request.headers.get("user-agent")) || config.userAgent);
-  headers.set("originator", request.headers.get("originator") || config.originator);
-  if (token.account) headers.set("chatgpt-account-id", token.account);
+  headers.set("user-agent", codex && request.headers.get("user-agent") || upstream.agent);
+  headers.set("originator", request.headers.get("originator") || upstream.agent);
   return headers;
 }
 
-async function upstream(request: Request, config: Config, path: string, payload: string, stream: boolean, native = false) {
-  const token = await fresh(config);
-  return fetch(`${config.upstream}${path}`, {
-    method: "POST",
-    headers: upstreamHeaders(request, config, token, stream, native),
-    body: payload,
-    signal: request.signal
-  });
-}
-
-function detail(text: string) {
-  try {
-    const parsed = JSON.parse(text) as Record<string, unknown>;
-    const error = parsed.error && typeof parsed.error === "object" ? (parsed.error as Record<string, unknown>) : {};
-    return parsed.detail ?? error.message ?? parsed.message ?? text.slice(0, 500);
-  } catch {
-    return text.slice(0, 500);
-  }
-}
-
-type RelayFields = { path: string; client?: string; model?: string; duration_ms: number };
-
-function record(state: RelayState | undefined, fields: RelayFields, status: number, detail?: unknown) {
-  void state?.record({
-    time: new Date().toISOString(),
-    path: fields.path,
-    client: fields.client,
-    model: fields.model,
-    status,
-    duration: fields.duration_ms,
-    ...(detail ? { detail: String(detail).slice(0, 240) } : {})
-  });
-}
-
-async function relayError(response: Response, fields: RelayFields & Record<string, unknown>, state?: RelayState) {
-  const text = await response.text();
-  const message = detail(text);
-  emit("warn", "upstream_error", { ...fields, status: response.status, detail: message });
-  record(state, fields, response.status, message);
-  return new Response(text || JSON.stringify({ error: { message: response.statusText } }), {
-    status: response.status,
-    headers: responseHeaders(response.headers, "application/json; charset=utf-8")
-  });
-}
-
-export async function responses(request: Request, config: Config, state?: RelayState, client?: string) {
-  const start = performance.now();
-  const id = trace(request);
-  const { body, stream, model, native, changes } = normalize(await request.text(), request.headers);
-  emit("debug", "upstream_request", { trace: id, path: "/responses", model, stream, native, changes });
-  let response: Response;
-  try {
-    response = await upstream(request, config, "/responses", body, stream, native);
-  } catch (error) {
-    record(state, { path: "/responses", client, model, duration_ms: elapsed(start) }, 0, (error as Error).message);
-    throw error;
-  }
-  const fields = { trace: id, path: "/responses", client, model, stream, duration_ms: elapsed(start) };
-  if (!response.ok) return relayError(response, fields, state);
-  emit("info", "upstream_response", { ...fields, status: response.status });
-  record(state, fields, response.status);
-  return relay(response, stream ? "text/event-stream; charset=utf-8" : "application/json; charset=utf-8");
-}
-
-export async function compact(request: Request, config: Config, state?: RelayState, client?: string) {
-  const start = performance.now();
-  const id = trace(request);
-  const payload = await request.text();
-  const native = nativeRequest(request.headers);
-  emit("debug", "upstream_request", { trace: id, path: "/responses/compact", native });
-  let response: Response;
-  try {
-    response = await upstream(request, config, "/responses/compact", payload, false, native);
-  } catch (error) {
-    record(state, { path: "/responses/compact", client, duration_ms: elapsed(start) }, 0, (error as Error).message);
-    throw error;
-  }
-  const fields = { trace: id, path: "/responses/compact", client, stream: false, duration_ms: elapsed(start) };
-  if (!response.ok) return relayError(response, fields, state);
-  emit("info", "upstream_response", { ...fields, status: response.status });
-  record(state, fields, response.status);
-  return relay(response, "application/json; charset=utf-8");
-}
-
-function relay(response: Response, fallback: string) {
-  return new Response(response.body, { status: response.status, headers: responseHeaders(response.headers, fallback) });
-}
-
 export function responseHeaders(source: Headers, fallback: string) {
-  const headers = copy(source, responseHeader);
+  const headers = new Headers();
+  for (const [name, value] of source)
+    if (responseNames.has(name) || responsePrefixes.some((prefix) => name.startsWith(prefix))) headers.set(name, value);
   if (!headers.has("content-type")) headers.set("content-type", fallback);
   if (fallback.startsWith("text/event-stream") && !headers.has("cache-control")) headers.set("cache-control", "no-cache");
   return headers;
 }
 
+function detail(text: string) {
+  try {
+    const payload = JSON.parse(text) as Payload;
+    const error = object(payload.error) ?? {};
+    return payload.detail ?? error.message ?? payload.message ?? text.slice(0, 500);
+  } catch { return text.slice(0, 500); }
+}
+
+type Fields = { path: string; client?: string; model?: string; duration_ms: number };
+function track(state: RelayState | undefined, fields: Fields, status: number, message?: unknown) {
+  void state?.record({
+    time: new Date().toISOString(), path: fields.path, client: fields.client, model: fields.model,
+    status, duration: fields.duration_ms, ...(message ? { detail: String(message).slice(0, 240) } : {})
+  });
+}
+
+async function forward(request: Request, config: Config, state: RelayState | undefined, client: string | undefined, path: string, payload: RequestBody) {
+  const start = performance.now();
+  const trace = request.headers.get("x-client-request-id") || crypto.randomUUID();
+  emit("debug", "upstream_request", { trace, path, model: payload.model, stream: payload.stream, native: payload.native, changes: payload.changes });
+  let response: Response;
+  try {
+    const token = await fresh(config.authFile);
+    response = await fetch(`${upstream.codex}${path}`, {
+      method: "POST", headers: upstreamHeaders(request, token, payload.stream, payload.native), body: payload.body, signal: request.signal
+    });
+  } catch (error) {
+    track(state, { path, client, model: payload.model, duration_ms: elapsed(start) }, 0, (error as Error).message);
+    throw error;
+  }
+  const fields = { trace, path, client, model: payload.model, stream: payload.stream, duration_ms: elapsed(start) };
+  if (!response.ok) {
+    const text = await response.text();
+    const message = detail(text);
+    emit("warn", "upstream_error", { ...fields, status: response.status, detail: message });
+    track(state, fields, response.status, message);
+    return new Response(text || JSON.stringify({ error: { message: response.statusText } }), {
+      status: response.status, headers: responseHeaders(response.headers, "application/json; charset=utf-8")
+    });
+  }
+  emit("info", "upstream_response", { ...fields, status: response.status });
+  track(state, fields, response.status);
+  const fallback = payload.stream ? "text/event-stream; charset=utf-8" : "application/json; charset=utf-8";
+  return new Response(response.body, { status: response.status, headers: responseHeaders(response.headers, fallback) });
+}
+
+export async function responses(request: Request, config: Config, state?: RelayState, client?: string) {
+  return forward(request, config, state, client, "/responses", normalize(await request.text(), request.headers));
+}
+
+export async function compact(request: Request, config: Config, state?: RelayState, client?: string) {
+  return forward(request, config, state, client, "/responses/compact", {
+    body: await request.text(), stream: false, model: undefined, native: native(request.headers), changes: []
+  });
+}
+
 function display(id: string) {
-  return id
-    .split("-")
-    .map((word) => (word === "gpt" ? "GPT" : word[0]?.toUpperCase() + word.slice(1)))
-    .join(" ");
+  return id.split("-").map((word) => word === "gpt" ? "GPT" : word[0]?.toUpperCase() + word.slice(1)).join(" ");
 }
 
 function clientModel(id: string) {
   return {
-    slug: id,
-    display_name: display(id),
-    description: display(id),
-    context_window: 272000,
-    max_context_window: 272000,
-    input_modalities: ["text", "image"],
-    supports_parallel_tool_calls: true,
-    supports_reasoning_summaries: true,
-    support_verbosity: true,
-    default_verbosity: "low",
-    default_reasoning_level: "medium",
-    supported_reasoning_levels: levels,
-    prefer_websockets: false,
-    visibility: "list",
-    supported_in_api: true
+    slug: id, display_name: display(id), description: display(id), context_window: 272000, max_context_window: 272000,
+    input_modalities: ["text", "image"], supports_parallel_tool_calls: true, supports_reasoning_summaries: true,
+    support_verbosity: true, default_verbosity: "low", default_reasoning_level: "medium", supported_reasoning_levels: levels,
+    prefer_websockets: false, visibility: "list", supported_in_api: true
   };
 }
 
-export function models(config: Config, client = false) {
-  if (client) return json({ models: config.models.map(clientModel) });
-  return json({
-    object: "list",
-    data: config.models.map((id) => ({
-      id,
-      object: "model",
-      created: 0,
-      owned_by: "codex"
-    }))
-  });
+export function models(client = false) {
+  const body = client
+    ? { models: upstream.models.map(clientModel) }
+    : { object: "list", data: upstream.models.map((id) => ({ id, object: "model", created: 0, owned_by: "codex" })) };
+  return Response.json(body, { headers: { "cache-control": "no-store", "x-content-type-options": "nosniff" } });
 }
