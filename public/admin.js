@@ -69,13 +69,13 @@ function usage(account) {
   const [primary, secondary] = windows
   const used = Math.max(0, Math.min(100, Number(primary?.used_percent) || 0))
   ui.plan.textContent = account.plan
-  ui["primary-percent"].textContent = primary ? `${used}%` : "Unlimited"
+  ui["primary-percent"].textContent = primary ? `${used}%` : "♾️"
   ui["primary-reset"].textContent = primary ? `${windowName(primary, true)} · ${remaining(primary.resets_at)}` : "No usage limit"
   ui["primary-progress"].setAttribute("aria-label", primary ? `${windowName(primary)} usage` : "Unlimited")
   ui["primary-progress"].setAttribute("aria-valuenow", String(used))
   ui["primary-progress"].querySelector("span").style.width = `${used}%`
   ui["secondary-label"].textContent = secondary ? windowName(secondary) : primary?.window_seconds >= 86400 ? "5-hour" : "Weekly"
-  ui["secondary-percent"].textContent = secondary ? `${secondary.used_percent}%` : "Unlimited"
+  ui["secondary-percent"].textContent = secondary ? `${secondary.used_percent}%` : "♾️"
   ui.lifetime.textContent = compact(account.lifetime_tokens)
   ui.credits.textContent = String(account.reset_credits)
 }

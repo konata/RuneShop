@@ -69,8 +69,8 @@ test("protects the admin page with a cookie session and CSRF token", async () =>
     expect(javascript).toContain('event.count > 1 ? ` × ${event.count}` : ""');
     expect(javascript).toContain("window.window_seconds / 3600");
     expect(javascript).toContain('ui["secondary-label"].textContent');
-    expect(javascript).toContain('primary ? `${used}%` : "Unlimited"');
-    expect(javascript).toContain('secondary ? `${secondary.used_percent}%` : "Unlimited"');
+    expect(javascript).toContain('primary ? `${used}%` : "♾️"');
+    expect(javascript).toContain('secondary ? `${secondary.used_percent}%` : "♾️"');
     expect(javascript).not.toContain("importable");
     expect(javascript).toContain("if (loading) return");
     expect(javascript).toContain('request("/admin/api/status").then(status).catch(offline)');
