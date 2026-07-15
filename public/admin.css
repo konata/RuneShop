@@ -216,6 +216,7 @@ dialog:focus-visible {
 
 .quiet-button:hover:not(:disabled) { background: #e9ebe6; }
 .quiet-button:disabled { cursor: not-allowed; opacity: .48; }
+.masthead-link { display: inline-flex; align-items: center; text-decoration: none; }
 .activity-card,
 .credential-card,
 .setup-card { margin-top: 20px; overflow: hidden; }

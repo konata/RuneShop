@@ -85,7 +85,7 @@ async function prepare(owner = identity()) {
   await mkdir(state, { recursive: true, mode: 0o700 });
   await chmod(state, 0o700);
   await chown(state, owner.uid, owner.gid);
-  for (const name of ["auth.json", "config.json"]) {
+  for (const name of ["access.json", "auth.json", "config.json"]) {
     const path = resolve(state, name);
     if (await Bun.file(path).exists()) { await chmod(path, 0o600); await chown(path, owner.uid, owner.gid); }
   }

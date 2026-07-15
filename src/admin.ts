@@ -3,6 +3,7 @@ import { hostname } from "node:os";
 import { extname, resolve } from "node:path";
 import type { Context, Hono, MiddlewareHandler } from "hono";
 import { deleteCookie, getCookie, setCookie } from "hono/cookie";
+import { AccessControl, AccessError } from "./access";
 import { AccountClient, credentialStatus, importCredential } from "./account";
 import { handoff, manualServiceAvailable, manualServiceCommand, serviceAvailable, Updater } from "./service";
 import { adminHash, emit, initialize, type Config, type RequestState } from "./state";
@@ -83,7 +84,7 @@ function sessionReply(context: Context) {
   return context.json({ ok: true });
 }
 
-export function mountAdmin(app: Hono, config: Config, state: RequestState) {
+export function mountAdmin(app: Hono, config: Config, state: RequestState, access: AccessControl) {
   const account = new AccountClient(config);
   const updater = new Updater(config);
   const sessions = new AdminSessions(config.adminPasswordHash);
@@ -99,11 +100,13 @@ export function mountAdmin(app: Hono, config: Config, state: RequestState) {
   app.use("/admin/*", guard);
   assets(app, [
     ["/base.css", "base.css"], ["/admin/app.css", "admin.css"], ["/admin/app.js", "admin.js"],
+    ["/admin/access.css", "access.css"], ["/admin/access.js", "access.js"],
     ["/admin/login.js", "login.js"], ["/admin/fonts/inter-latin.woff2", "fonts/inter-latin.woff2"],
     ["/admin/fonts/jetbrains-mono-latin.woff2", "fonts/jetbrains-mono-latin.woff2"]
   ]);
   app.get("/admin/login", (context) => active(context) ? context.redirect("/admin") : asset("login.html", "no-store"));
   for (const path of ["/admin", "/admin/"]) app.get(path, () => asset("admin.html", "no-store"));
+  app.get("/admin/access", () => asset("access.html", "no-store"));
 
   app.post("/admin/api/session", async (context) => {
     if (!sessions.enabled) return failure("admin password is unavailable", 503);
@@ -119,6 +122,43 @@ export function mountAdmin(app: Hono, config: Config, state: RequestState) {
     if (!confirmed(context)) return failure("invalid confirmation token", 403);
     deleteCookie(context, cookie, { path: "/admin", secure: secure(context) });
     return sessionReply(context);
+  });
+
+  app.get("/admin/api/access", () => json(access.snapshot()));
+  app.put("/admin/api/access", async (context) => {
+    if (!confirmed(context)) return failure("invalid confirmation token", 403);
+    const { required } = await context.req.json<{ required?: unknown }>().catch((): { required?: unknown } => ({}));
+    if (typeof required !== "boolean") return failure("required must be a boolean");
+    const snapshot = await access.require(required);
+    emit("info", "admin_access_mode", { required });
+    return json(snapshot);
+  });
+  app.post("/admin/api/access/tenants", async (context) => {
+    if (!confirmed(context)) return failure("invalid confirmation token", 403);
+    const { alias } = await context.req.json<{ alias?: unknown }>().catch((): { alias?: unknown } => ({}));
+    if (typeof alias !== "string") return failure("alias is required");
+    try {
+      const snapshot = await access.create(alias);
+      emit("info", "admin_access_tenant_created", { alias: alias.trim() });
+      return json(snapshot, 201);
+    } catch (cause) {
+      if (cause instanceof AccessError) return failure(cause.message, cause.status);
+      throw cause;
+    }
+  });
+  app.patch("/admin/api/access/tenants", async (context) => {
+    if (!confirmed(context)) return failure("invalid confirmation token", 403);
+    const { alias, enabled } = await context.req.json<{ alias?: unknown; enabled?: unknown }>()
+      .catch((): { alias?: unknown; enabled?: unknown } => ({}));
+    if (typeof alias !== "string" || typeof enabled !== "boolean") return failure("alias and enabled are required");
+    try {
+      const snapshot = await access.enable(alias, enabled);
+      emit("info", "admin_access_tenant", { alias, enabled });
+      return json(snapshot);
+    } catch (cause) {
+      if (cause instanceof AccessError) return failure(cause.message, cause.status);
+      throw cause;
+    }
   });
 
   app.get("/admin/api/status", async () => {

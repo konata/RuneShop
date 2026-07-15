@@ -8,6 +8,7 @@ export function configuration(overrides: Partial<Config> = {}): Config {
     port: 3721,
     adminPasswordHash: "",
     authFile: "",
+    accessFile: "",
     stateDir: "",
     ...overrides
   };

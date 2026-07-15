@@ -3,6 +3,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Hono } from "hono";
+import { AccessControl } from "../src/access";
 import { mountAdmin } from "../src/admin";
 import { configure, RequestState } from "../src/state";
 import { configuration } from "./config";
@@ -13,10 +14,11 @@ test("protects the admin page with a cookie session and CSRF token", async () =>
   configure("silent");
   const config = configuration({
     adminPasswordHash: await Bun.password.hash("admin-secret"),
+    accessFile: join(directory, "access.json"),
     authFile: join(directory, "auth.json"),
     stateDir: directory
   });
-  mountAdmin(app, config, new RequestState(directory));
+  mountAdmin(app, config, new RequestState(directory), new AccessControl(config.accessFile));
 
   try {
     const anonymous = await app.request("http://localhost/admin");
@@ -51,17 +53,19 @@ test("protects the admin page with a cookie session and CSRF token", async () =>
     expect(html).toContain('id="codex-config"');
     expect(html).toContain('id="opencode-config"');
     expect(html).toContain('id="pi-config"');
+    expect(html).toContain('href="/admin/access"');
     expect(html).not.toContain('id="client-shell"');
     expect(html.indexOf('class="card activity-card"')).toBeGreaterThan(html.indexOf('class="card setup-card"'));
 
     const script = await app.request("http://localhost/admin/app.js", { headers: { cookie } });
     expect(script.status).toBe(200);
     const javascript = await script.text();
-    expect(javascript).toContain('env_key = "PWD"');
-    expect(javascript).toContain('apiKey: "{env:PWD}"');
-    expect(javascript).toContain('apiKey: "$PWD"');
+    expect(javascript).toContain('const key = required ? "RUNESHOP_API_KEY" : "PWD"');
+    expect(javascript).toContain('env_key = "${key}"');
+    expect(javascript).toContain('apiKey: `{env:${key}}`');
+    expect(javascript).toContain('apiKey: `$${key}`');
     expect(javascript).toContain('npm: "@ai-sdk/openai"');
-    expect(javascript).not.toContain("RUNESHOP_API_KEY");
+    expect(javascript).toContain("RUNESHOP_API_KEY");
     expect(javascript).toContain("client.textContent = clientName(clientId)");
     expect(javascript).toContain("client.title = clientId");
     expect(javascript).toContain('event.fast ? "-⚡️" : ""');
@@ -79,8 +83,37 @@ test("protects the admin page with a cookie session and CSRF token", async () =>
     expect(stylesheet.status).toBe(200);
     expect(await stylesheet.text()).toContain(".activity-card.show-project");
 
+    const accessPage = await app.request("http://localhost/admin/access", { headers: { cookie } });
+    expect(accessPage.status).toBe(200);
+    expect(await accessPage.text()).toContain('id="tenant-card"');
+    expect((await app.request("http://localhost/admin/access.js", { headers: { cookie } })).status).toBe(200);
+    expect((await app.request("http://localhost/admin/access.css", { headers: { cookie } })).status).toBe(200);
+
     const session = await app.request("http://localhost/admin/api/session", { headers: { cookie } });
     const { csrf } = await session.json() as { csrf: string };
+    expect(await (await app.request("http://localhost/admin/api/access", { headers: { cookie } })).json()).toEqual({ required: false, tenants: [] });
+    const accessDenied = await app.request("http://localhost/admin/api/access", {
+      method: "PUT", headers: { cookie, "content-type": "application/json" }, body: JSON.stringify({ required: true })
+    });
+    expect(accessDenied.status).toBe(403);
+    const required = await app.request("http://localhost/admin/api/access", {
+      method: "PUT", headers: { cookie, "content-type": "application/json", "x-csrf-token": csrf },
+      body: JSON.stringify({ required: true })
+    });
+    expect((await required.json()).required).toBe(true);
+    const created = await app.request("http://localhost/admin/api/access/tenants", {
+      method: "POST", headers: { cookie, "content-type": "application/json", "x-csrf-token": csrf },
+      body: JSON.stringify({ alias: "studio-mac" })
+    });
+    const createdAccess = await created.json() as { tenants: Array<{ alias: string; key: string; enabled: boolean }> };
+    expect(created.status).toBe(201);
+    expect(createdAccess.tenants[0]).toMatchObject({ alias: "studio-mac", enabled: true });
+    expect(createdAccess.tenants[0].key).toStartWith("rsk_");
+    const disabled = await app.request("http://localhost/admin/api/access/tenants", {
+      method: "PATCH", headers: { cookie, "content-type": "application/json", "x-csrf-token": csrf },
+      body: JSON.stringify({ alias: "studio-mac", enabled: false })
+    });
+    expect((await disabled.json()).tenants[0].enabled).toBe(false);
     const denied = await app.request("http://localhost/admin/api/session/logout", { method: "POST", headers: { cookie } });
     expect(denied.status).toBe(403);
 

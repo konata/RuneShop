@@ -28,6 +28,7 @@ export type Config = {
   port: number;
   adminPasswordHash: string;
   authFile: string;
+  accessFile: string;
   stateDir: string;
 };
 
@@ -91,7 +92,7 @@ export function load(directory = resolve(homedir(), ".runeshop"), parameters = B
   return {
     configured: Boolean(stored), managed: process.env.RUNESHOP_SERVICE === "systemd", configFile,
     port: stored?.port ?? startupPort(parameters), adminPasswordHash: stored?.admin_password_hash ?? "",
-    authFile: resolve(directory, "auth.json"), stateDir: directory
+    authFile: resolve(directory, "auth.json"), accessFile: resolve(directory, "access.json"), stateDir: directory
   };
 }
 

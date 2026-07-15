@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#f2f3ef">
+    <title>API Access · RuneShop</title>
+    <link rel="icon" href="data:,">
+    <link rel="stylesheet" href="/base.css">
+    <link rel="stylesheet" href="/admin/app.css">
+    <link rel="stylesheet" href="/admin/access.css">
+    <script src="/admin/access.js" defer></script>
+  </head>
+  <body>
+    <header class="masthead">
+      <div class="masthead-inner">
+        <a class="brand brand-link" href="/admin">
+          <span class="mark" aria-hidden="true">RS</span>
+          <div><strong>RuneShop</strong><span class="mono">Access control</span></div>
+        </a>
+        <div class="masthead-actions">
+          <span id="access-status" class="status"><i aria-hidden="true"></i>Loading</span>
+          <a class="quiet-button masthead-link" href="/admin">Overview</a>
+        </div>
+      </div>
+    </header>
+
+    <main class="shell access-shell">
+      <header class="page-heading access-heading">
+        <h1>API access</h1>
+      </header>
+
+      <section class="card mode-card" aria-labelledby="mode-title">
+        <div class="section-heading"><h2 id="mode-title">Mode</h2></div>
+        <fieldset id="mode-options" class="mode-options" disabled>
+          <legend class="sr-only">API key requirement</legend>
+          <label class="mode-option">
+            <input name="access-mode" type="radio" value="open">
+            <span class="mode-mark" aria-hidden="true"></span>
+            <span><strong>Open</strong><small>No key required</small></span>
+          </label>
+          <label class="mode-option">
+            <input name="access-mode" type="radio" value="required">
+            <span class="mode-mark" aria-hidden="true"></span>
+            <span><strong>Required</strong><small>Enabled keys only</small></span>
+          </label>
+        </fieldset>
+      </section>
+
+      <section id="tenant-card" class="card tenant-card" aria-labelledby="tenant-title" hidden>
+        <div class="section-heading tenant-heading">
+          <h2 id="tenant-title">Tenants</h2>
+          <div class="tenant-actions">
+            <span id="tenant-count" class="muted">0 tenants · 0 enabled</span>
+            <button id="new-tenant" class="primary-button" type="button">New tenant</button>
+          </div>
+        </div>
+        <div class="tenant-table" role="table" aria-label="API tenants">
+          <div class="tenant-columns" role="row">
+            <span role="columnheader">Alias</span>
+            <span role="columnheader">Key</span>
+            <span role="columnheader">Enabled</span>
+          </div>
+          <div id="tenants" role="rowgroup"></div>
+        </div>
+      </section>
+
+    </main>
+
+    <dialog id="tenant-dialog" class="dialog" aria-labelledby="tenant-dialog-title">
+      <form id="tenant-form">
+        <h2 id="tenant-dialog-title">New tenant</h2>
+        <label class="tenant-field" for="tenant-alias">Alias</label>
+        <input id="tenant-alias" name="alias" autocomplete="off" placeholder="e.g. studio-mac" required>
+        <p id="tenant-error" class="form-error" role="alert" hidden></p>
+        <div class="dialog-actions">
+          <button id="cancel-tenant" class="quiet-button" type="button">Cancel</button>
+          <button class="primary-button" type="submit">Create tenant</button>
+        </div>
+      </form>
+    </dialog>
+
+    <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+  </body>
+</html>

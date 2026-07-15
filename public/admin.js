@@ -4,6 +4,7 @@ let revision
 let csrf
 let authFile
 let loading = false
+let samples = {}
 
 function updateText(value) {
   ui.update.querySelector("span").textContent = value
@@ -309,7 +310,8 @@ async function logout() {
   }
 }
 
-function configs() {
+function configs(required = false) {
+  const key = required ? "RUNESHOP_API_KEY" : "PWD"
   return {
     codex: `model = "gpt-5.6-sol"
 model_provider = "runeshop"
@@ -317,7 +319,7 @@ model_provider = "runeshop"
 [model_providers.runeshop]
 name = "RuneShop"
 base_url = "${location.origin}/v1"
-env_key = "PWD"
+env_key = "${key}"
 wire_api = "responses"
 supports_websockets = false`,
     opencode: JSON.stringify({
@@ -327,7 +329,7 @@ supports_websockets = false`,
         runeshop: {
           npm: "@ai-sdk/openai",
           name: "RuneShop",
-          options: { baseURL: `${location.origin}/v1`, apiKey: "{env:PWD}" },
+          options: { baseURL: `${location.origin}/v1`, apiKey: `{env:${key}}` },
           models: { "gpt-5.6-sol": { name: "GPT-5.6 Sol" } }
         }
       }
@@ -337,7 +339,7 @@ supports_websockets = false`,
         runeshop: {
           baseUrl: `${location.origin}/v1`,
           api: "openai-responses",
-          apiKey: "$PWD",
+          apiKey: `$${key}`,
           authHeader: true,
           compat: { supportsDeveloperRole: false },
           models: [{ id: "gpt-5.6-sol", name: "GPT-5.6 Sol", reasoning: true }]
@@ -345,6 +347,11 @@ supports_websockets = false`,
       }
     }, null, 2)
   }
+}
+
+function showConfigs(required = false) {
+  samples = configs(required)
+  for (const [provider, sample] of Object.entries(samples)) ui[`${provider}-config`].textContent = sample
 }
 
 async function copy(value, message) {
@@ -377,7 +384,8 @@ async function load() {
     request("/admin/api/update").then(update).catch((error) => update({
       current: "--", remote: "--", behind: 0, ahead: 0, dirty: false, supported: false, error: error.message
     })),
-    request("/admin/api/credentials").then(credentials).catch((error) => toast(`Credential status: ${error.message}`))
+    request("/admin/api/credentials").then(credentials).catch((error) => toast(`Credential status: ${error.message}`)),
+    request("/admin/api/access").then(({ required }) => showConfigs(required)).catch((error) => toast(`API access: ${error.message}`))
   ]
   try {
     await Promise.allSettled(tasks)
@@ -396,10 +404,10 @@ ui.update.addEventListener("click", showUpdate)
 ui["confirm-update"].addEventListener("click", startUpdate)
 const activityCard = ui.activity.closest(".activity-card")
 ui["activity-title"].closest(".section-heading").addEventListener("dblclick", () => activityCard.classList.toggle("show-project"))
-for (const [provider, sample] of Object.entries(configs())) {
-  ui[`${provider}-config`].textContent = sample
+showConfigs()
+for (const provider of Object.keys(samples)) {
   const name = provider === "codex" ? "Codex" : provider === "opencode" ? "OpenCode" : "Pi"
-  ui[`copy-${provider}`].addEventListener("click", () => copy(sample, `${name} configuration copied`))
+  ui[`copy-${provider}`].addEventListener("click", () => copy(samples[provider], `${name} configuration copied`))
 }
 ui["choose-auth"].addEventListener("click", () => ui["auth-file"].click())
 ui["auth-file"].addEventListener("change", confirmAuth)
