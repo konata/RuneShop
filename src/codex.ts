@@ -202,12 +202,12 @@ function detail(text: string, status: number, contentType: string) {
   try {
     const payload = JSON.parse(text) as Payload;
     const error = object(payload.error) ?? {};
-    return { message: payload.detail ?? error.message ?? payload.message ?? text.slice(0, 500), html: false };
+    return payload.detail ?? error.message ?? payload.message ?? text.slice(0, 500);
   } catch {}
   const html = contentType.toLowerCase().includes("html") || /^\s*(?:<!doctype html\b|<(?:html|head|body|title|h[1-3])\b)/i.test(text);
-  if (!html) return { message: text.slice(0, 500), html: false };
+  if (!html) return text.slice(0, 500);
   const message = htmlDetail(text);
-  return { message: `HTTP ${status}${message ? `: ${message}` : ""}`.slice(0, 500), html: true };
+  return `HTTP ${status}${message ? `: ${message}` : ""}`.slice(0, 500);
 }
 
 type Fields = { path: string; client?: string; model?: string; effort?: string; fast?: boolean; duration_ms: number };
@@ -236,16 +236,12 @@ async function forward(request: Request, config: Config, state: RequestState | u
   const fields = { trace, path, client, model: payload.model, effort: payload.effort, fast: payload.fast, stream: payload.stream, duration_ms: elapsed(start) };
   if (!response.ok) {
     const text = await response.text();
-    const failure = detail(text, response.status, response.headers.get("content-type") || "");
-    const message = String(failure.message || response.statusText || `HTTP ${response.status}`);
+    const message = String(detail(text, response.status, response.headers.get("content-type") || "") || response.statusText || `HTTP ${response.status}`);
     emit("warn", "upstream_error", { ...fields, status: response.status, detail: message });
     track(state, fields, response.status, message);
-    const headers = responseHeaders(response.headers, "application/json; charset=utf-8", payload.native);
-    if (failure.html) headers.set("content-type", "application/json; charset=utf-8");
-    const body = failure.html
-      ? JSON.stringify({ error: { message, type: "upstream_error", code: "upstream_html_error" } })
-      : text || JSON.stringify({ error: { message } });
-    return new Response(body, { status: response.status, headers });
+    return new Response(text || JSON.stringify({ error: { message } }), {
+      status: response.status, headers: responseHeaders(response.headers, "application/json; charset=utf-8", payload.native)
+    });
   }
   emit("info", "upstream_response", { ...fields, status: response.status });
   track(state, fields, response.status);
