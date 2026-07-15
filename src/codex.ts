@@ -102,11 +102,14 @@ export function normalize(body: string, headers = new Headers()) {
 type RequestBody = ReturnType<typeof normalize>;
 const requestNames = new Set([
   "version", "openai-beta", "x-client-request-id", "x-oai-attestation", "conversation_id",
-  "session_id", "thread-id", "traceparent", "tracestate"
+  "session-id", "thread-id", "traceparent", "tracestate"
 ]);
-const requestPrefixes = ["x-codex-", "x-openai-", "x-responsesapi-"];
-const secretNames = new Set(["authorization", "cookie", "x-api-key"]);
+const secretNames = new Set(["authorization", "chatgpt-account-id", "cookie", "set-cookie", "set-cookie2", "x-api-key"]);
 const secretSuffixes = ["-authorization", "-api-key", "-access-token", "-refresh-token", "-session-token"];
+const transportNames = new Set([
+  "accept-encoding", "connection", "content-encoding", "content-length", "expect", "host", "keep-alive",
+  "proxy-authenticate", "te", "trailer", "transfer-encoding", "upgrade"
+]);
 const responseNames = new Set(["cache-control", "cf-ray", "content-type", "retry-after", "x-request-id"]);
 const responsePrefixes = ["openai-", "x-codex-", "x-models-", "x-openai-", "x-ratelimit-", "x-reasoning-"];
 const levels = [
@@ -116,14 +119,22 @@ const levels = [
   { effort: "xhigh", description: "Extra high reasoning depth for complex work" }
 ];
 
-function allowed(name: string, codex: boolean) {
-  if (secretNames.has(name) || secretSuffixes.some((suffix) => name.endsWith(suffix))) return false;
-  return requestNames.has(name) || codex && requestPrefixes.some((prefix) => name.startsWith(prefix));
+function relayable(name: string) {
+  return !transportNames.has(name) && !secretNames.has(name) && !secretSuffixes.some((suffix) => name.endsWith(suffix));
+}
+
+function requestHeader(name: string, codex: boolean) {
+  return relayable(name) && (codex || requestNames.has(name));
+}
+
+function responseHeader(name: string, codex: boolean) {
+  return relayable(name) && (codex || responseNames.has(name) || responsePrefixes.some((prefix) => name.startsWith(prefix)));
 }
 
 export function upstreamHeaders(request: Request, token: Pick<CodexToken, "access" | "account">, stream: boolean, codex = false) {
-  const headers = authorization(token);
-  for (const [name, value] of request.headers) if (allowed(name, codex)) headers.set(name, value);
+  const headers = new Headers();
+  for (const [name, value] of request.headers) if (requestHeader(name, codex)) headers.set(name, value);
+  for (const [name, value] of authorization(token)) headers.set(name, value);
   headers.set("content-type", "application/json");
   headers.set("accept", stream ? "text/event-stream" : "application/json");
   headers.set("user-agent", codex && request.headers.get("user-agent") || upstream.agent);
@@ -131,10 +142,9 @@ export function upstreamHeaders(request: Request, token: Pick<CodexToken, "acces
   return headers;
 }
 
-export function responseHeaders(source: Headers, fallback: string) {
+export function responseHeaders(source: Headers, fallback: string, codex = false) {
   const headers = new Headers();
-  for (const [name, value] of source)
-    if (responseNames.has(name) || responsePrefixes.some((prefix) => name.startsWith(prefix))) headers.set(name, value);
+  for (const [name, value] of source) if (responseHeader(name, codex)) headers.set(name, value);
   if (!headers.has("content-type")) headers.set("content-type", fallback);
   if (fallback.startsWith("text/event-stream") && !headers.has("cache-control")) headers.set("cache-control", "no-cache");
   return headers;
@@ -178,13 +188,13 @@ async function forward(request: Request, config: Config, state: RequestState | u
     emit("warn", "upstream_error", { ...fields, status: response.status, detail: message });
     track(state, fields, response.status, message);
     return new Response(text || JSON.stringify({ error: { message: response.statusText } }), {
-      status: response.status, headers: responseHeaders(response.headers, "application/json; charset=utf-8")
+      status: response.status, headers: responseHeaders(response.headers, "application/json; charset=utf-8", payload.native)
     });
   }
   emit("info", "upstream_response", { ...fields, status: response.status });
   track(state, fields, response.status);
   const fallback = payload.stream ? "text/event-stream; charset=utf-8" : "application/json; charset=utf-8";
-  return new Response(response.body, { status: response.status, headers: responseHeaders(response.headers, fallback) });
+  return new Response(response.body, { status: response.status, headers: responseHeaders(response.headers, fallback, payload.native) });
 }
 
 export async function responses(request: Request, config: Config, state?: RequestState, client?: string) {
