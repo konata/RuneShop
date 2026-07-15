@@ -132,6 +132,37 @@ test("adds streaming defaults without replacing upstream cache policy", () => {
   expect(generic.has("future-provider-state")).toBe(false);
 });
 
+test.serial("extracts readable errors from upstream HTML", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "runeshop-"));
+  const authFile = join(directory, "auth.json");
+  await writeFile(authFile, JSON.stringify({ access_token: "access", account_id: "account", expired: "2099-01-01T00:00:00Z" }));
+  const original = globalThis.fetch;
+  globalThis.fetch = (async (_input, _init) => new Response(`
+    <html><head><title>Just a moment...</title><style>body { color: red }</style></head><body>
+      <svg><path d="noise" /></svg>
+      <noscript><div role="main"><span id="challenge-error-text">Enable JavaScript &amp; cookies to continue</span></div></noscript>
+      <script>window.error = "irrelevant"</script>
+    </body></html>
+  `, { status: 520, headers: { "content-type": "text/html; charset=UTF-8" } })) as typeof fetch;
+
+  try {
+    const state = new RequestState(directory);
+    const response = await responses(new Request("http://localhost/v1/responses", {
+      method: "POST", body: JSON.stringify({ model: "gpt-5.6-sol", input: [], stream: true })
+    }), { ...config, authFile }, state);
+
+    expect(response.status).toBe(520);
+    expect(response.headers.get("content-type")).toBe("application/json; charset=utf-8");
+    expect(await response.json()).toEqual({
+      error: { message: "HTTP 520: Enable JavaScript & cookies to continue", type: "upstream_error", code: "upstream_html_error" }
+    });
+    expect((await state.snapshot()).activity[0].detail).toBe("HTTP 520: Enable JavaScript & cookies to continue");
+  } finally {
+    globalThis.fetch = original;
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
 test.serial("propagates downstream cancellation upstream", async () => {
   const directory = await mkdtemp(join(tmpdir(), "runeshop-"));
   const authFile = join(directory, "auth.json");

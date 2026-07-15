@@ -150,12 +150,64 @@ export function responseHeaders(source: Headers, fallback: string, codex = false
   return headers;
 }
 
-function detail(text: string) {
+const htmlSelectors = [
+  ["[role=\"alert\"]", "[id*=\"error\" i]", "[class*=\"error\" i]", "[id*=\"message\" i]", "[class*=\"message\" i]", "[id*=\"detail\" i]", "[class*=\"detail\" i]"],
+  ["h1", "h2", "h3", "title"],
+  ["main p"],
+  ["p"],
+  ["body"]
+];
+const entities: Record<string, string> = { amp: "&", apos: "'", gt: ">", lt: "<", nbsp: " ", quot: "\"" };
+
+function decode(text: string) {
+  return text.replace(/&(?:#(\d+)|#x([\da-f]+)|(amp|apos|gt|lt|nbsp|quot));/gi, (entity, decimal, hexadecimal, name) => {
+    const point = decimal ? Number(decimal) : hexadecimal ? Number.parseInt(hexadecimal, 16) : NaN;
+    return name ? entities[name.toLowerCase()] : point <= 0x10ffff ? String.fromCodePoint(point) : entity;
+  });
+}
+
+function fragments(html: string, selector: string) {
+  const matches: string[][] = [];
+  let match: string[] | undefined;
+  new HTMLRewriter().on(selector, {
+    element() { match = []; matches.push(match); },
+    text(chunk) { match?.push(chunk.text); }
+  }).transform(html);
+  return matches.map((parts) => parts.join(""));
+}
+
+function readable(text: string) {
+  return decode(text.replace(/<!--[\s\S]*?-->|<[^>]*>/g, " ")).replace(/\s+/g, " ").trim();
+}
+
+function htmlDetail(html: string) {
+  const clean = new HTMLRewriter().on("style, script, svg, template", { element(element) { element.remove(); } }).transform(html);
+  const noscript = fragments(clean, "noscript");
+  const sources = [clean, ...noscript];
+  const best = (values: string[]) => [...new Set(values.map(readable).filter(Boolean))].sort((left, right) => right.length - left.length)[0];
+  for (const selectors of htmlSelectors.slice(0, 3)) {
+    const message = best(sources.flatMap((source) => selectors.flatMap((selector) => fragments(source, selector))));
+    if (message) return message;
+  }
+  const message = best(noscript);
+  if (message) return message;
+  for (const selectors of htmlSelectors.slice(3)) {
+    const fallback = best(sources.flatMap((source) => selectors.flatMap((selector) => fragments(source, selector))));
+    if (fallback) return fallback;
+  }
+  return "";
+}
+
+function detail(text: string, status: number, contentType: string) {
   try {
     const payload = JSON.parse(text) as Payload;
     const error = object(payload.error) ?? {};
-    return payload.detail ?? error.message ?? payload.message ?? text.slice(0, 500);
-  } catch { return text.slice(0, 500); }
+    return { message: payload.detail ?? error.message ?? payload.message ?? text.slice(0, 500), html: false };
+  } catch {}
+  const html = contentType.toLowerCase().includes("html") || /^\s*(?:<!doctype html\b|<(?:html|head|body|title|h[1-3])\b)/i.test(text);
+  if (!html) return { message: text.slice(0, 500), html: false };
+  const message = htmlDetail(text);
+  return { message: `HTTP ${status}${message ? `: ${message}` : ""}`.slice(0, 500), html: true };
 }
 
 type Fields = { path: string; client?: string; model?: string; effort?: string; fast?: boolean; duration_ms: number };
@@ -184,12 +236,16 @@ async function forward(request: Request, config: Config, state: RequestState | u
   const fields = { trace, path, client, model: payload.model, effort: payload.effort, fast: payload.fast, stream: payload.stream, duration_ms: elapsed(start) };
   if (!response.ok) {
     const text = await response.text();
-    const message = detail(text);
+    const failure = detail(text, response.status, response.headers.get("content-type") || "");
+    const message = String(failure.message || response.statusText || `HTTP ${response.status}`);
     emit("warn", "upstream_error", { ...fields, status: response.status, detail: message });
     track(state, fields, response.status, message);
-    return new Response(text || JSON.stringify({ error: { message: response.statusText } }), {
-      status: response.status, headers: responseHeaders(response.headers, "application/json; charset=utf-8", payload.native)
-    });
+    const headers = responseHeaders(response.headers, "application/json; charset=utf-8", payload.native);
+    if (failure.html) headers.set("content-type", "application/json; charset=utf-8");
+    const body = failure.html
+      ? JSON.stringify({ error: { message, type: "upstream_error", code: "upstream_html_error" } })
+      : text || JSON.stringify({ error: { message } });
+    return new Response(body, { status: response.status, headers });
   }
   emit("info", "upstream_response", { ...fields, status: response.status });
   track(state, fields, response.status);
