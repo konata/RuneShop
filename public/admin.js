@@ -5,6 +5,8 @@ let csrf
 let authFile
 let loading = false
 let samples = {}
+let credentialConfigured = false
+let credentialDetails = false
 
 function updateText(value) {
   ui.update.querySelector("span").textContent = value
@@ -83,8 +85,10 @@ function usage(account) {
 
 function credentials(status) {
   ui["credential-badge"].className = "badge"
-  ui["credential-account"].hidden = true
+  credentialConfigured = status.configured
   if (!status.configured) {
+    credentialDetails = false
+    ui["credential-account"].hidden = true
     ui["credential-badge"].textContent = "Missing"
     ui["credential-badge"].classList.add("warning")
     ui["credential-summary"].textContent = "No Codex credential configured"
@@ -102,7 +106,7 @@ function credentials(status) {
   ui["account-email"].textContent = account.email || "N/A"
   ui["account-id"].textContent = account.account_id || "N/A"
   ui["account-plan"].textContent = account.plan || "N/A"
-  ui["credential-account"].hidden = false
+  ui["credential-account"].hidden = !credentialDetails
 }
 
 function eventLabel(event) {
@@ -411,6 +415,12 @@ ui.update.addEventListener("click", showUpdate)
 ui["confirm-update"].addEventListener("click", startUpdate)
 const activityCard = ui.activity.closest(".activity-card")
 ui["activity-title"].closest(".section-heading").addEventListener("dblclick", () => activityCard.classList.toggle("show-project"))
+const credentialHeading = ui["credentials-title"].closest(".section-heading")
+credentialHeading.addEventListener("dblclick", () => {
+  if (!credentialConfigured) return
+  credentialDetails = !credentialDetails
+  ui["credential-account"].hidden = !credentialDetails
+})
 showConfigs()
 for (const provider of Object.keys(samples)) {
   const name = provider === "codex" ? "Codex" : provider === "opencode" ? "OpenCode" : "Pi"

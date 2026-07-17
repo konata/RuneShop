@@ -78,6 +78,8 @@ test("protects the admin page with a cookie session and CSRF token", async () =>
     expect(javascript).toContain('primary ? `${used}%` : "♾️"');
     expect(javascript).toContain('secondary ? `${secondary.used_percent}%` : "♾️"');
     expect(javascript).toContain('account.account_id || "N/A"');
+    expect(javascript).toContain('credentialHeading.addEventListener("dblclick"');
+    expect(javascript).toContain('ui["credential-account"].hidden = !credentialDetails');
     expect(javascript).not.toContain("importable");
     expect(javascript).toContain("if (loading) return");
     expect(javascript).toContain('request("/admin/api/status").then(status).catch(offline)');

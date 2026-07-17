@@ -221,7 +221,8 @@ dialog:focus-visible {
 .credential-card,
 .setup-card { margin-top: 20px; overflow: hidden; }
 .section-heading { min-height: 50px; padding: 16px 20px; }
-.activity-card .section-heading { user-select: none; }
+.activity-card .section-heading,
+.credential-card .section-heading { user-select: none; }
 .section-heading h2 { margin: 3px 0 0; font-size: 15px; }
 .section-heading > .muted { font-size: 12px; }
 
