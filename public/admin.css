@@ -287,6 +287,18 @@ dialog:focus-visible {
 .credential-copy { min-width: 0; }
 .credential-copy strong { display: block; font-size: 14px; }
 .credential-copy p { margin: 3px 0 0; color: var(--muted); font-size: 12px; }
+.credential-account {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1px;
+  margin: 0;
+  border-top: 1px solid var(--line);
+  background: var(--line);
+}
+.credential-account[hidden] { display: none; }
+.credential-account div { min-width: 0; background: var(--surface); padding: 14px 20px; }
+.credential-account dt { color: var(--muted); font-size: 11px; }
+.credential-account dd { margin: 5px 0 0; overflow-wrap: anywhere; font-size: 13px; font-weight: 500; }
 .credential-file { margin: 16px 0 0; border-radius: 8px; background: color-mix(in srgb, var(--surface), var(--page) 45%); padding: 10px 12px; overflow-wrap: anywhere; }
 .file-input { display: none; }
 .masthead-logout { min-height: 28px; flex: 0 0 auto; background: transparent; white-space: nowrap; }
@@ -369,6 +381,8 @@ dialog:focus-visible {
   .activity li { gap: 10px; padding-inline: 16px; }
   .credential-body { align-items: stretch; flex-direction: column; gap: 14px; padding-inline: 16px; }
   .credential-body .quiet-button { width: 100%; }
+  .credential-account { grid-template-columns: minmax(0, 1fr); }
+  .credential-account div { padding-inline: 16px; }
   .login-card { padding: 24px; }
 }
 

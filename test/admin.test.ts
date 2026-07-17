@@ -53,6 +53,8 @@ test("protects the admin page with a cookie session and CSRF token", async () =>
     expect(html).toContain('id="codex-config"');
     expect(html).toContain('id="opencode-config"');
     expect(html).toContain('id="pi-config"');
+    expect(html).toContain('id="credential-account"');
+    expect(html).toContain('id="account-email"');
     expect(html).toContain('href="/admin/access"');
     expect(html).not.toContain('id="client-shell"');
     expect(html.indexOf('class="card activity-card"')).toBeGreaterThan(html.indexOf('class="card setup-card"'));
@@ -75,6 +77,7 @@ test("protects the admin page with a cookie session and CSRF token", async () =>
     expect(javascript).toContain('ui["secondary-label"].textContent');
     expect(javascript).toContain('primary ? `${used}%` : "♾️"');
     expect(javascript).toContain('secondary ? `${secondary.used_percent}%` : "♾️"');
+    expect(javascript).toContain('account.account_id || "N/A"');
     expect(javascript).not.toContain("importable");
     expect(javascript).toContain("if (loading) return");
     expect(javascript).toContain('request("/admin/api/status").then(status).catch(offline)');

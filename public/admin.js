@@ -83,6 +83,7 @@ function usage(account) {
 
 function credentials(status) {
   ui["credential-badge"].className = "badge"
+  ui["credential-account"].hidden = true
   if (!status.configured) {
     ui["credential-badge"].textContent = "Missing"
     ui["credential-badge"].classList.add("warning")
@@ -96,6 +97,12 @@ function credentials(status) {
   const updated = status.updated_at ? new Date(status.updated_at).toLocaleString() : "unknown"
   const expiry = status.expires_at ? new Date(status.expires_at).toLocaleString() : "unknown"
   ui["credential-detail"].textContent = `Updated ${updated} · expires ${expiry}`
+  const account = status.account || {}
+  ui["account-name"].textContent = account.name || "N/A"
+  ui["account-email"].textContent = account.email || "N/A"
+  ui["account-id"].textContent = account.account_id || "N/A"
+  ui["account-plan"].textContent = account.plan || "N/A"
+  ui["credential-account"].hidden = false
 }
 
 function eventLabel(event) {

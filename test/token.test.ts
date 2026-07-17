@@ -40,6 +40,38 @@ test("parses Codex auth cache token files", () => {
   expect(token?.expires).toBeInstanceOf(Date);
 });
 
+test("reports display-safe account identity from Codex tokens", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "runeshop-credential-"));
+  const authFile = auth(directory);
+  const payload = Buffer.from(JSON.stringify({
+    name: "Rune User",
+    email: "rune@example.com",
+    "https://api.openai.com/auth": { chatgpt_account_id: "8b0471e0-71c9-4d68-80d2-bfb94fbabdaf", chatgpt_plan_type: "pro" }
+  })).toString("base64url");
+  await writeFile(authFile, JSON.stringify({
+    access_token: "access",
+    refresh_token: "refresh",
+    account_id: "8b0471e0-71c9-4d68-80d2-bfb94fbabdaf",
+    id_token: `header.${payload}.signature`,
+    expired: "2099-01-01T00:00:00Z"
+  }));
+
+  try {
+    const status = await credentialStatus(authFile);
+    expect(status.account).toEqual({
+      name: "Rune User",
+      email: "rune@example.com",
+      account_id: "8b0471e0-71c9-4d68-80d2-bfb94fbabdaf",
+      plan: "pro"
+    });
+    expect(JSON.stringify(status)).not.toContain("access_token");
+    expect(JSON.stringify(status)).not.toContain("refresh_token");
+    expect(JSON.stringify(status)).not.toContain("id_token");
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
 test.serial("refreshes and persists an expired credential", async () => {
   const directory = await mkdtemp(join(tmpdir(), "runeshop-credential-"));
   const path = auth(directory);

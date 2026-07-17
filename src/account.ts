@@ -33,12 +33,15 @@ function date(value: unknown) {
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
+function claims(token: string) {
+  try { return record(JSON.parse(Buffer.from(token.split(".")[1] ?? "", "base64url").toString("utf8"))); }
+  catch { return {}; }
+}
+
 function accountId(id: string) {
-  try {
-    const claims = object(JSON.parse(Buffer.from(id.split(".")[1] ?? "", "base64url").toString("utf8")));
-    const auth = object(claims?.["https://api.openai.com/auth"]);
-    return field(auth?.chatgpt_account_id, auth?.account_id, claims?.chatgpt_account_id);
-  } catch { return ""; }
+  const payload = claims(id);
+  const auth = record(payload["https://api.openai.com/auth"]);
+  return field(auth.chatgpt_account_id, auth.account_id, payload.chatgpt_account_id);
 }
 
 export function parse(store: Payload) {
@@ -85,6 +88,20 @@ function canonical(token: CodexToken) {
   };
 }
 
+function account(token: CodexToken) {
+  const access = claims(token.access);
+  const identity = claims(token.id);
+  const accessAuth = record(access["https://api.openai.com/auth"]);
+  const identityAuth = record(identity["https://api.openai.com/auth"]);
+  const profile = record(access["https://api.openai.com/profile"]);
+  return {
+    name: field(identity.name, profile.name) || null,
+    email: field(identity.email, profile.email) || null,
+    account_id: field(token.account, identityAuth.chatgpt_account_id, accessAuth.chatgpt_account_id) || null,
+    plan: field(identityAuth.chatgpt_plan_type, accessAuth.chatgpt_plan_type) || null
+  };
+}
+
 async function renew(token: CodexToken) {
   if (!token.refresh) throw new Error("Codex token expired without a refresh token");
   emit("info", "token_refresh", { account: token.account ? "present" : "missing", expires_at: token.expires?.toISOString() });
@@ -125,14 +142,17 @@ async function probe(token: CodexToken) {
 }
 
 function report(token: CodexToken, updated_at: string | null) {
-  return { configured: true, refreshable: Boolean(token.refresh), expires_at: token.expires?.toISOString() ?? null, updated_at };
+  return {
+    configured: true, refreshable: Boolean(token.refresh), expires_at: token.expires?.toISOString() ?? null, updated_at,
+    account: account(token)
+  };
 }
 
 export async function credentialStatus(path: string) {
   try {
     const [token, info] = await Promise.all([load(path), stat(path)]);
     return report(token, info.mtime.toISOString());
-  } catch { return { configured: false, refreshable: false, expires_at: null, updated_at: null }; }
+  } catch { return { configured: false, refreshable: false, expires_at: null, updated_at: null, account: null }; }
 }
 
 export async function fresh(path: string) {
