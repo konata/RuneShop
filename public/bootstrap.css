@@ -148,8 +148,6 @@ input:focus-visible,
   box-shadow: 0 0 0 4px rgba(245, 158, 11, .12);
 }
 
-.setup-state:not(.ready) > span:first-child { animation: dot-pulse 2.2s ease-out infinite; }
-
 .setup-state #setup-label {
   width: auto;
   height: auto;
@@ -196,7 +194,6 @@ input:focus-visible,
   box-shadow: var(--shadow);
   color: #fff;
   padding: 28px;
-  animation: rise 520ms cubic-bezier(.2, .8, .3, 1) backwards;
 }
 
 .hero::before {
@@ -221,7 +218,6 @@ input:focus-visible,
   filter: blur(28px);
   opacity: .58;
   content: "";
-  animation: orb-drift 16s ease-in-out infinite alternate;
 }
 
 .hero-copy,
@@ -231,10 +227,6 @@ input:focus-visible,
 .hero h1 {
   max-width: 620px;
   margin: 0;
-  background: linear-gradient(180deg, #fff 34%, rgba(255, 255, 255, .64));
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
   font-size: clamp(38px, 8.8vw, 72px);
   font-weight: 760;
   line-height: .96;
@@ -285,10 +277,7 @@ input:focus-visible,
   box-shadow: inset 0 1px rgba(255, 255, 255, .1);
   padding: 16px;
   backdrop-filter: blur(16px);
-  transition: transform 160ms ease, border-color 160ms ease, background 160ms ease;
 }
-
-.hero-facts div:hover { border-color: rgba(255, 255, 255, .2); transform: translateY(-2px); }
 
 .hero-facts dt { color: rgba(255, 255, 255, .54); font-size: 11px; font-weight: 720; letter-spacing: .02em; }
 .hero-facts dd { margin: 7px 0 0; overflow-wrap: anywhere; color: rgba(255, 255, 255, .92); font-size: 13px; font-weight: 700; }
@@ -302,7 +291,6 @@ input:focus-visible,
   font-size: 15px;
   padding: 24px;
   backdrop-filter: blur(18px) saturate(135%);
-  animation: rise 520ms 90ms cubic-bezier(.2, .8, .3, 1) backwards;
 }
 
 .card-accent {
@@ -524,7 +512,7 @@ input:focus {
 }
 .primary-button:hover:not(:disabled) { background: linear-gradient(180deg, #3f3f46, #18181b); box-shadow: 0 16px 36px rgba(9, 9, 11, .22), inset 0 1px rgba(255, 255, 255, .18); }
 .quiet-button { min-height: 36px; border: 1px solid var(--line); background: #fff; color: var(--ink); padding: 0 12px; font-size: 12px; }
-.quiet-button:hover:not(:disabled) { border-color: var(--line-strong); background: #f4f4f5; box-shadow: 0 2px 10px rgba(24, 24, 27, .07); }
+.quiet-button:hover:not(:disabled) { background: #f4f4f5; }
 .primary-button:active:not(:disabled),
 .quiet-button:active:not(:disabled) { transform: translateY(1px); }
 .primary-button:disabled,
@@ -578,7 +566,6 @@ input:focus {
   border-radius: 999px;
   background: radial-gradient(circle at 35% 30%, #fff, #bbf7d0 28%, #22c55e 70%);
   box-shadow: 0 16px 40px rgba(34, 197, 94, .24), inset 0 1px rgba(255, 255, 255, .88);
-  animation: orb-pop 460ms cubic-bezier(.2, .9, .3, 1.35) backwards;
 }
 .complete-title {
   margin: 0;
@@ -653,19 +640,10 @@ input:focus {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after { transition: none !important; animation: none !important; }
+  *, *::before, *::after { transition: none !important; }
 }
 
-@keyframes rise { from { opacity: 0; transform: translateY(14px); } }
-@keyframes orb-drift { from { transform: translate(0, 0) rotate(0deg); } to { transform: translate(-34px, -26px) rotate(42deg); } }
-@keyframes orb-pop { from { opacity: 0; transform: scale(.55); } }
-@keyframes dot-pulse {
-  0% { box-shadow: 0 0 0 0 rgba(245, 158, 11, .38); }
-  70% { box-shadow: 0 0 0 8px rgba(245, 158, 11, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); }
-}
-
-.device-panel { display: grid; gap: 10px; margin-top: 10px; border: 1px solid var(--line); border-radius: 12px; padding: 14px; animation: rise 300ms cubic-bezier(.2, .8, .3, 1); }
+.device-panel { display: grid; gap: 10px; margin-top: 10px; border: 1px solid var(--line); border-radius: 10px; padding: 14px; }
 .device-panel .field-hint { margin: 0; }
 .device-panel a { color: inherit; }
-.device-code { margin: 0; border: 1px dashed var(--line-strong); border-radius: 10px; padding: 12px; font-size: 24px; font-weight: 700; letter-spacing: .16em; text-align: center; }
+.device-code { margin: 0; font-size: 24px; font-weight: 650; letter-spacing: .12em; }
