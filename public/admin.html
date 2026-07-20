@@ -110,6 +110,7 @@
           </div>
           <input id="auth-file" class="file-input" type="file" accept=".json,application/json">
           <button id="choose-auth" class="quiet-button" type="button">Import auth.json</button>
+          <button id="device-auth" class="quiet-button" type="button">Sign in with device code</button>
         </div>
         <dl id="credential-account" class="credential-account" hidden>
           <div><dt>Name</dt><dd id="account-name">N/A</dd></div>
@@ -182,6 +183,18 @@
         <div class="dialog-actions">
           <button id="cancel-auth" class="quiet-button" value="cancel">Cancel</button>
           <button id="confirm-auth" class="primary-button" value="default" type="button">Import credential</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="device-dialog" class="dialog" aria-labelledby="device-dialog-title">
+      <form method="dialog">
+        <h2 id="device-dialog-title">Sign in with device code</h2>
+        <p class="muted">Open <a id="device-url" href="#" target="_blank" rel="noreferrer">…</a> in any browser and enter this code. It expires in 15 minutes.</p>
+        <p id="device-code" class="mono device-code"></p>
+        <p id="device-progress" class="update-progress" role="status">Waiting for authorization…</p>
+        <div class="dialog-actions">
+          <button id="cancel-device" class="quiet-button" value="cancel">Cancel</button>
         </div>
       </form>
     </dialog>

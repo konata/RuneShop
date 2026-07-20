@@ -104,6 +104,17 @@
               </label>
             </div>
 
+            <div class="field">
+              <label>Or sign in on this server</label>
+              <button id="device-start" class="quiet-button" type="button">Sign in with device code</button>
+              <div id="device-panel" class="device-panel" hidden>
+                <p class="field-hint">Open <a id="device-url" href="#" target="_blank" rel="noreferrer">…</a> in any browser and enter this code (expires in 15 minutes):</p>
+                <p id="device-code" class="mono device-code"></p>
+                <p id="device-status" class="field-hint" role="status">Waiting for authorization…</p>
+              </div>
+              <p id="device-error" class="form-error" role="alert" hidden></p>
+            </div>
+
             <button id="setup-button" class="primary-button" type="submit">Save configuration</button>
             <p id="setup-error" class="form-error" role="alert" hidden></p>
           </form>

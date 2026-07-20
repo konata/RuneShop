@@ -642,3 +642,8 @@ input:focus {
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition: none !important; }
 }
+
+.device-panel { display: grid; gap: 10px; margin-top: 10px; border: 1px solid var(--line); border-radius: 10px; padding: 14px; }
+.device-panel .field-hint { margin: 0; }
+.device-panel a { color: inherit; }
+.device-code { margin: 0; font-size: 24px; font-weight: 650; letter-spacing: .12em; }

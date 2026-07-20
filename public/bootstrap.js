@@ -65,6 +65,70 @@ file.addEventListener("change", () => {
   byId("file-name").textContent = file.files[0]?.name || "Choose auth.json"
 })
 
+let deviceTimer
+
+function deviceFailure(cause) {
+  failure(byId("device-error"), cause)
+  byId("device-start").disabled = false
+  byId("device-start").textContent = "Sign in with device code"
+}
+
+async function pollDevice() {
+  clearTimeout(deviceTimer)
+  let status
+  try {
+    const response = await fetch("/bootstrap/api/device", { cache: "no-store", headers: { "x-runeshop-bootstrap": bootstrapToken } })
+    status = await decode(response)
+  } catch (cause) {
+    deviceFailure(cause)
+    return
+  }
+  if (status.state === "pending") {
+    deviceTimer = setTimeout(pollDevice, 2500)
+    return
+  }
+  if (status.state === "failed") {
+    deviceFailure(new Error(status.error || "device sign-in failed"))
+    return
+  }
+  if (status.state === "complete") {
+    const email = status.account && status.account.email
+    byId("device-status").textContent = email ? `Signed in as ${email}. Credential saved.` : "Signed in. Credential saved."
+    byId("device-start").disabled = true
+    byId("device-start").textContent = "Signed in"
+    file.required = false
+    file.disabled = true
+    byId("file-name").textContent = "Signed in with device code"
+  }
+}
+
+byId("device-start").addEventListener("click", async () => {
+  bootstrapToken = token.value || bootstrapToken
+  if (!bootstrapToken) return deviceFailure(new Error("setup token is required"))
+  sessionStorage.setItem(storageKey, bootstrapToken)
+  byId("device-error").hidden = true
+  const start = byId("device-start")
+  start.disabled = true
+  start.textContent = "Requesting code…"
+  try {
+    const body = await decode(await fetch("/bootstrap/api/device", {
+      method: "POST",
+      cache: "no-store",
+      headers: { "x-runeshop-bootstrap": bootstrapToken }
+    }))
+    const url = byId("device-url")
+    url.textContent = body.verification_url
+    url.href = body.verification_url
+    byId("device-code").textContent = body.user_code
+    byId("device-status").textContent = "Waiting for authorization…"
+    byId("device-panel").hidden = false
+    start.textContent = "Waiting for sign-in…"
+    void pollDevice()
+  } catch (cause) {
+    deviceFailure(cause)
+  }
+})
+
 form.addEventListener("submit", async (event) => {
   event.preventDefault()
   setupError.hidden = true
@@ -73,11 +137,13 @@ form.addEventListener("submit", async (event) => {
   button.disabled = true
   button.textContent = "Saving…"
   try {
+    const data = new FormData(form)
+    if (!file.files.length) data.delete("auth")
     const body = await decode(await fetch("/bootstrap/api/setup", {
       method: "POST",
       cache: "no-store",
       headers: { "x-runeshop-bootstrap": bootstrapToken },
-      body: new FormData(form)
+      body: data
     }))
     complete(body.managed, body.systemd, body.manual_systemd, body.manual_systemd_command)
   } catch (cause) {

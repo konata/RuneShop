@@ -24,9 +24,10 @@ bun run start --port <PORT>
 ```
 
 Open the Setup URL printed by RuneShop. It includes the one-time token; replace
-the hostname if necessary, then choose an admin pass and upload the `auth.json`
-created by Codex sign-in. Configuration and credentials are stored in
-`~/.runeshop`, and the Admin page becomes available immediately.
+the hostname if necessary, then choose an admin pass and sign in. Either upload
+the `auth.json` created by Codex sign-in, or use **Sign in with device code** to
+authorize the server directly from any browser. Configuration and credentials
+are stored in `~/.runeshop`, and the Admin page becomes available immediately.
 
 ### systemd
 

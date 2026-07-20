@@ -5,6 +5,7 @@ import type { Context, Hono, MiddlewareHandler } from "hono";
 import { deleteCookie, getCookie, setCookie } from "hono/cookie";
 import { AccessControl, AccessError } from "./access";
 import { AccountClient, credentialStatus, importCredential } from "./account";
+import { DeviceLogin } from "./device";
 import { handoff, manualServiceAvailable, manualServiceCommand, serviceAvailable, Updater } from "./service";
 import { adminHash, emit, initialize, type Config, type RequestState } from "./state";
 
@@ -42,10 +43,10 @@ function assets(app: Hono, entries: Array<[string, string]>, cache = "no-cache")
 async function credentialForm(context: Context) {
   if (Number(context.req.header("content-length") || 0) > 1_100_000) return failure("auth.json exceeds the 1 MB limit", 413);
   const form = await context.req.raw.formData().catch(() => null);
-  const auth = form?.get("auth");
-  if (!(auth instanceof File)) return failure("auth.json is required");
-  if (auth.size > 1_000_000) return failure("auth.json exceeds the 1 MB limit", 413);
-  return form!;
+  if (!form) return failure("invalid form data");
+  const auth = form.get("auth");
+  if (auth instanceof File && auth.size > 1_000_000) return failure("auth.json exceeds the 1 MB limit", 413);
+  return form;
 }
 
 type AdminSession = { csrf: string; expires: number };
@@ -87,6 +88,7 @@ function sessionReply(context: Context) {
 export function mountAdmin(app: Hono, config: Config, state: RequestState, access: AccessControl) {
   const account = new AccountClient(config);
   const updater = new Updater(config);
+  const device = new DeviceLogin(config.authFile, { settled: () => account.invalidate() });
   const sessions = new AdminSessions(config.adminPasswordHash);
   const active = (context: Context) => sessions.find(getCookie(context, cookie));
   const confirmed = (context: Context) => active(context)?.csrf === context.req.header("x-csrf-token");
@@ -177,10 +179,22 @@ export function mountAdmin(app: Hono, config: Config, state: RequestState, acces
     if (!confirmed(context)) return failure("invalid confirmation token", 403);
     const form = await credentialForm(context);
     if (form instanceof Response) return form;
-    const credentials = await importCredential(config.authFile, await (form.get("auth") as File).text());
+    const auth = form.get("auth");
+    if (!(auth instanceof File) || !auth.size) return failure("auth.json is required");
+    const credentials = await importCredential(config.authFile, await auth.text());
     await account.invalidate();
     emit("info", "admin_credentials_imported", { refreshable: credentials.refreshable, expires_at: credentials.expires_at });
     return json(credentials);
+  });
+  app.post("/admin/api/credentials/device", async (context) => {
+    if (!confirmed(context)) return failure("invalid confirmation token", 403);
+    try { return json(await device.start(), 202); }
+    catch (cause) { return failure((cause as Error).message, 409); }
+  });
+  app.get("/admin/api/credentials/device", () => json(device.status()));
+  app.post("/admin/api/credentials/device/cancel", (context) => {
+    if (!confirmed(context)) return failure("invalid confirmation token", 403);
+    return json(device.cancel());
   });
   app.get("/admin/api/update", async () => json(await updater.status(true)));
   app.post("/admin/api/update", async (context) => {
@@ -205,6 +219,7 @@ export function mountBootstrap(app: Hono, config: Config, secret = randomBytes(3
 
   const url = `http://${hostname() || "localhost"}:${config.port}/bootstrap#token=${encodeURIComponent(secret)}`;
   emit("info", "bootstrap_ready", { url, systemd, manual_systemd: manual });
+  const device = new DeviceLogin(config.authFile);
   for (const path of ["/", "/admin", "/admin/", "/admin/login"]) app.get(path, (context) => context.redirect("/bootstrap"));
   app.all("/admin/api/*", () => failure("RuneShop setup is required", 401));
   assets(app, [
@@ -215,6 +230,23 @@ export function mountBootstrap(app: Hono, config: Config, secret = randomBytes(3
   app.get("/bootstrap", () => asset("bootstrap.html", "no-store"));
   app.get("/bootstrap/api/status", async () => json({ configured: await Bun.file(config.configFile).exists(), ...serviceStatus() }));
 
+  app.post("/bootstrap/api/device", async (context) => {
+    const rejection = denied(context.req.header("x-runeshop-bootstrap"));
+    if (rejection) return rejection;
+    try { return json(await device.start(), 202); }
+    catch (cause) { return failure((cause as Error).message, 409); }
+  });
+  app.get("/bootstrap/api/device", (context) => {
+    const rejection = denied(context.req.header("x-runeshop-bootstrap"));
+    if (rejection) return rejection;
+    return json(device.status());
+  });
+  app.post("/bootstrap/api/device/cancel", (context) => {
+    const rejection = denied(context.req.header("x-runeshop-bootstrap"));
+    if (rejection) return rejection;
+    return json(device.cancel());
+  });
+
   app.post("/bootstrap/api/setup", async (context) => {
     const rejection = denied(context.req.header("x-runeshop-bootstrap"));
     if (rejection) return rejection;
@@ -224,7 +256,9 @@ export function mountBootstrap(app: Hono, config: Config, secret = randomBytes(3
     const password = String(form.get("admin_password") ?? "");
     if (!password) return failure("admin pass is required");
     const passwordHash = await adminHash(password);
-    await importCredential(config.authFile, await (form.get("auth") as File).text());
+    const auth = form.get("auth");
+    if (auth instanceof File && auth.size) await importCredential(config.authFile, await auth.text());
+    else if (!await Bun.file(config.authFile).exists()) return failure("auth.json is required");
     await initialize(config, passwordHash);
     ready();
     emit("info", "bootstrap_complete", { port: config.port, client_access: "trusted", systemd, manual_systemd: manual });

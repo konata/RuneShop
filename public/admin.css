@@ -398,3 +398,6 @@ dialog:focus-visible {
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; animation: none !important; }
 }
+
+.device-code { margin: 14px 0 0; font-size: 24px; font-weight: 650; letter-spacing: .12em; }
+.dialog a { color: inherit; }

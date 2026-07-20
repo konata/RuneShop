@@ -321,6 +321,50 @@ async function logout() {
   }
 }
 
+let deviceTimer
+
+async function pollDevice() {
+  clearTimeout(deviceTimer)
+  let state
+  try {
+    state = await request("/admin/api/credentials/device")
+  } catch (error) {
+    ui["device-progress"].textContent = error.message
+    return
+  }
+  if (state.state === "pending") {
+    deviceTimer = setTimeout(pollDevice, 2500)
+    return
+  }
+  if (state.state === "failed") {
+    ui["device-progress"].textContent = state.error || "Device sign-in failed"
+    return
+  }
+  if (state.state === "complete") {
+    ui["device-dialog"].close()
+    credentials(await request("/admin/api/credentials"))
+    usage(await request("/admin/api/account?refresh=1"))
+    toast("Codex credential imported")
+  }
+}
+
+async function startDevice() {
+  ui["device-auth"].disabled = true
+  try {
+    const body = await request("/admin/api/credentials/device", { method: "POST" })
+    ui["device-url"].textContent = body.verification_url
+    ui["device-url"].href = body.verification_url
+    ui["device-code"].textContent = body.user_code
+    ui["device-progress"].textContent = "Waiting for authorization…"
+    ui["device-dialog"].showModal()
+    void pollDevice()
+  } catch (error) {
+    toast(error.message)
+  } finally {
+    ui["device-auth"].disabled = false
+  }
+}
+
 function configs(required = false) {
   const key = required ? "RUNESHOP_API_KEY" : "PWD"
   return {
@@ -432,6 +476,11 @@ ui["confirm-auth"].addEventListener("click", importAuth)
 ui["auth-dialog"].addEventListener("close", () => {
   authFile = undefined
   ui["auth-file"].value = ""
+})
+ui["device-auth"].addEventListener("click", startDevice)
+ui["device-dialog"].addEventListener("close", () => {
+  clearTimeout(deviceTimer)
+  request("/admin/api/credentials/device/cancel", { method: "POST" }).catch(() => undefined)
 })
 ui.logout.addEventListener("click", logout)
 
