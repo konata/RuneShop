@@ -109,8 +109,10 @@
             <p id="credential-detail">RuneShop stores imported credentials with owner-only permissions.</p>
           </div>
           <input id="auth-file" class="file-input" type="file" accept=".json,application/json">
-          <button id="choose-auth" class="quiet-button" type="button">Import auth.json</button>
-          <button id="device-auth" class="quiet-button" type="button">Sign in with device code</button>
+          <div class="credential-actions">
+            <button id="choose-auth" class="quiet-button" type="button">Import auth.json</button>
+            <button id="device-auth" class="quiet-button" type="button">Sign in with device code</button>
+          </div>
         </div>
         <dl id="credential-account" class="credential-account" hidden>
           <div><dt>Name</dt><dd id="account-name">N/A</dd></div>

@@ -14,9 +14,9 @@ const jwt = (payload: Record<string, unknown>) =>
 
 const idToken = jwt({ "https://api.openai.com/auth": { chatgpt_account_id: "account" } });
 
-type Exchange = { url: string; body: string };
+type Call = { url: string; body: string };
 
-function mockFlow(options: { polls?: number; tokenStatus?: number; usercodeStatus?: number; calls?: Exchange[] } = {}) {
+function mockFlow(options: { polls?: number; tokenStatus?: number; usercodeStatus?: number; calls?: Call[] } = {}) {
   let polls = 0;
   const original = globalThis.fetch;
   globalThis.fetch = (async (input, init) => {
@@ -56,7 +56,7 @@ async function waitFor(device: DeviceLogin, state: string) {
 test.serial("completes a device code sign-in and imports the credential", async () => {
   const directory = await mkdtemp(join(tmpdir(), "runeshop-device-"));
   const authFile = join(directory, "auth.json");
-  const calls: Exchange[] = [];
+  const calls: Call[] = [];
   const original = mockFlow({ calls });
   const device = new DeviceLogin(authFile);
   try {
@@ -74,9 +74,10 @@ test.serial("completes a device code sign-in and imports the credential", async 
     expect(stored.account_id).toBe("account");
     expect((await stat(authFile)).mode & 0o777).toBe(0o600);
 
-    expect(calls[0]).toMatchObject({ url: "https://auth.openai.com/api/accounts/deviceauth/usercode", body: JSON.stringify({ client_id: "app_EMoamEEZ73f0CkXaXp7hrann" }) });
-    expect(calls[1]).toMatchObject({ url: "https://auth.openai.com/api/accounts/deviceauth/token" });
-    expect(JSON.parse(calls[1].body)).toEqual({ device_auth_id: "device-id", user_code: "ABCD-1234" });
+    const [usercode, poll] = calls;
+    expect(usercode).toMatchObject({ url: "https://auth.openai.com/api/accounts/deviceauth/usercode", body: JSON.stringify({ client_id: "app_EMoamEEZ73f0CkXaXp7hrann" }) });
+    expect(poll).toMatchObject({ url: "https://auth.openai.com/api/accounts/deviceauth/token" });
+    expect(JSON.parse(poll.body)).toEqual({ device_auth_id: "device-id", user_code: "ABCD-1234" });
     const exchange = calls.find((call) => call.url === "https://auth.openai.com/oauth/token");
     const parameters = new URLSearchParams(exchange?.body);
     expect(parameters.get("grant_type")).toBe("authorization_code");
@@ -91,13 +92,15 @@ test.serial("completes a device code sign-in and imports the credential", async 
   }
 });
 
-test.serial("rejects a concurrent start and cancels a pending sign-in", async () => {
+test.serial("replaces a pending sign-in when started again", async () => {
   const directory = await mkdtemp(join(tmpdir(), "runeshop-device-"));
   const original = mockFlow({ tokenStatus: 403 });
   const device = new DeviceLogin(join(directory, "auth.json"));
   try {
     await device.start();
-    await expect(device.start()).rejects.toThrow("already in progress");
+    const restarted = await device.start();
+    expect(restarted.user_code).toBe("ABCD-1234");
+    expect(device.status().state).toBe("pending");
     expect(device.cancel().state).toBe("idle");
     await Bun.sleep(150);
     expect(device.status().state).toBe("idle");
@@ -128,7 +131,7 @@ test.serial("fails when polling returns an unexpected status", async () => {
 test.serial("expires when authorization never completes", async () => {
   const directory = await mkdtemp(join(tmpdir(), "runeshop-device-"));
   const original = mockFlow({ tokenStatus: 403 });
-  const device = new DeviceLogin(join(directory, "auth.json"), { maxWait: 60 });
+  const device = new DeviceLogin(join(directory, "auth.json"), undefined, 60);
   try {
     await device.start();
     const status = await waitFor(device, "failed");

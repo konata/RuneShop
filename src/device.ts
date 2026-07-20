@@ -3,17 +3,15 @@ import { emit } from "./state";
 
 const issuer = "https://auth.openai.com";
 const timeout = 10_000;
-const maxWait = 15 * 60_000;
-const expiresIn = 900;
 
 type Payload = Record<string, unknown>;
-type FlowState = "idle" | "pending" | "complete" | "failed";
+type Credential = Awaited<ReturnType<typeof importCredential>>;
 export type DeviceStatus = {
-  state: FlowState;
+  state: "idle" | "pending" | "complete" | "failed";
   verification_url?: string;
   user_code?: string;
   error?: string;
-  account?: unknown;
+  account?: Credential["account"];
 };
 
 function field(...values: unknown[]) {
@@ -48,14 +46,15 @@ export class DeviceLogin {
 
   constructor(
     private readonly authFile: string,
-    private readonly hooks: { settled?: () => unknown; maxWait?: number } = {}
+    private readonly imported?: () => unknown,
+    private readonly lifetime = 15 * 60_000
   ) {}
 
   status() { return { ...this.snapshot }; }
 
   async start() {
-    if (this.pending) throw new Error("a device code sign-in is already in progress");
-    const response = await post("/api/accounts/deviceauth/usercode", { client_id: upstream.client }, AbortSignal.timeout(timeout));
+    this.pending?.abort.abort();
+    const response = await post("/api/accounts/deviceauth/usercode", { client_id: upstream.client }, new AbortController().signal);
     if (response.status === 404)
       throw new Error("device code sign-in is not enabled for this account; enable it in ChatGPT Codex security settings");
     if (response.status < 200 || response.status >= 300)
@@ -64,61 +63,68 @@ export class DeviceLogin {
     const deviceAuthId = field(payload.device_auth_id);
     const userCode = field(payload.user_code, payload.usercode);
     if (!deviceAuthId || !userCode) throw new Error("device code response was not understood");
-    const interval = Math.max(0.05, Number(payload.interval) || 5);
+    const seconds = Math.max(0.05, Number(payload.interval) || 5);
     const abort = new AbortController();
-    const snapshot: DeviceStatus = { state: "pending", verification_url: `${issuer}/codex/device`, user_code: userCode };
-    this.snapshot = snapshot;
-    const task = this.complete(snapshot, deviceAuthId, userCode, interval, abort.signal);
+    this.snapshot = { state: "pending", verification_url: `${issuer}/codex/device`, user_code: userCode };
+    const task = this.complete(deviceAuthId, userCode, seconds, abort.signal);
     this.pending = { abort, task };
     void task.finally(() => { if (this.pending?.task === task) this.pending = undefined; });
-    emit("info", "device_login_start", {});
-    return { verification_url: snapshot.verification_url, user_code: userCode, expires_in: expiresIn };
+    emit("info", "device_login_start");
+    return { verification_url: this.snapshot.verification_url, user_code: userCode, expires_in: this.lifetime / 1000 };
   }
 
   cancel() {
     this.pending?.abort.abort();
     this.snapshot = { state: "idle" };
-    emit("info", "device_login_cancelled", {});
+    emit("info", "device_login_cancelled");
     return this.status();
   }
 
-  private async complete(snapshot: DeviceStatus, deviceAuthId: string, userCode: string, interval: number, signal: AbortSignal) {
+  private async complete(deviceAuthId: string, userCode: string, seconds: number, signal: AbortSignal) {
     try {
-      const deadline = Date.now() + (this.hooks.maxWait ?? maxWait);
-      let code: Payload | undefined;
-      while (!code) {
-        const poll = await post("/api/accounts/deviceauth/token", { device_auth_id: deviceAuthId, user_code: userCode }, signal);
-        if (poll.status >= 200 && poll.status < 300) code = poll.json();
-        else if (poll.status !== 403 && poll.status !== 404)
-          throw new Error(`device code polling failed (${poll.status}): ${poll.text.slice(0, 240)}`);
-        else if (Date.now() >= deadline) throw new Error("device code expired before sign-in completed");
-        else await sleep(interval * 1000, signal);
-      }
-      const authorizationCode = field(code.authorization_code);
-      const codeVerifier = field(code.code_verifier);
-      if (!authorizationCode || !codeVerifier) throw new Error("device code authorization response was not understood");
-      const exchanged = await post("/oauth/token", {
-        grant_type: "authorization_code", code: authorizationCode,
-        redirect_uri: `${issuer}/deviceauth/callback`, client_id: upstream.client, code_verifier: codeVerifier
-      }, signal, true);
-      if (exchanged.status < 200 || exchanged.status >= 300)
-        throw new Error(`device code exchange failed (${exchanged.status}): ${exchanged.text.slice(0, 240)}`);
-      const tokens = exchanged.json();
-      const source: Payload = {
-        type: "codex",
-        access_token: field(tokens.access_token),
-        refresh_token: field(tokens.refresh_token),
-        id_token: field(tokens.id_token)
-      };
-      if (typeof tokens.expires_in === "number") source.expired = new Date(Date.now() + tokens.expires_in * 1000).toISOString();
+      const code = await this.poll(deviceAuthId, userCode, seconds, signal);
+      const source = await this.exchange(code, signal);
       const report = await importCredential(this.authFile, JSON.stringify(source));
-      await this.hooks.settled?.();
-      this.snapshot = { ...snapshot, state: "complete", account: report.account };
+      await this.imported?.();
+      this.snapshot = { ...this.snapshot, state: "complete", account: report.account };
       emit("info", "device_login_complete", { refreshable: report.refreshable, expires_at: report.expires_at });
     } catch (cause) {
       if ((cause as Error).name === "AbortError") return;
-      this.snapshot = { ...snapshot, state: "failed", error: (cause as Error).message };
+      this.snapshot = { ...this.snapshot, state: "failed", error: (cause as Error).message };
       emit("warn", "device_login_failed", { message: (cause as Error).message });
     }
+  }
+
+  private async poll(deviceAuthId: string, userCode: string, seconds: number, signal: AbortSignal) {
+    const deadline = Date.now() + this.lifetime;
+    for (;;) {
+      const poll = await post("/api/accounts/deviceauth/token", { device_auth_id: deviceAuthId, user_code: userCode }, signal);
+      if (poll.status >= 200 && poll.status < 300) return poll.json();
+      if (poll.status !== 403 && poll.status !== 404)
+        throw new Error(`device code polling failed (${poll.status}): ${poll.text.slice(0, 240)}`);
+      if (Date.now() >= deadline) throw new Error("device code expired before sign-in completed");
+      await sleep(seconds * 1000, signal);
+    }
+  }
+
+  private async exchange(code: Payload, signal: AbortSignal) {
+    const authorizationCode = field(code.authorization_code);
+    const codeVerifier = field(code.code_verifier);
+    if (!authorizationCode || !codeVerifier) throw new Error("device code authorization response was not understood");
+    const exchanged = await post("/oauth/token", {
+      grant_type: "authorization_code", code: authorizationCode,
+      redirect_uri: `${issuer}/deviceauth/callback`, client_id: upstream.client, code_verifier: codeVerifier
+    }, signal, true);
+    if (exchanged.status < 200 || exchanged.status >= 300)
+      throw new Error(`device code exchange failed (${exchanged.status}): ${exchanged.text.slice(0, 240)}`);
+    const tokens = exchanged.json();
+    const source: Payload = {
+      type: "codex",
+      access_token: field(tokens.access_token),
+      refresh_token: field(tokens.refresh_token),
+      id_token: field(tokens.id_token)
+    };
+    if (typeof tokens.expires_in === "number") source.expired = new Date(Date.now() + tokens.expires_in * 1000).toISOString();
+    return source;
   }
 }

@@ -6,6 +6,12 @@ const setupError = byId("setup-error")
 const service = byId("install-service")
 const serviceError = byId("service-error")
 const file = byId("auth-file")
+const deviceStart = byId("device-start")
+const devicePanel = byId("device-panel")
+const deviceUrl = byId("device-url")
+const deviceCode = byId("device-code")
+const deviceStatus = byId("device-status")
+const deviceError = byId("device-error")
 const storageKey = "runeshop-setup-token"
 const fragmentToken = new URLSearchParams(location.hash.slice(1)).get("token")?.trim() || ""
 let bootstrapToken = fragmentToken || sessionStorage.getItem(storageKey) || ""
@@ -68,9 +74,9 @@ file.addEventListener("change", () => {
 let deviceTimer
 
 function deviceFailure(cause) {
-  failure(byId("device-error"), cause)
-  byId("device-start").disabled = false
-  byId("device-start").textContent = "Sign in with device code"
+  failure(deviceError, cause)
+  deviceStart.disabled = false
+  deviceStart.textContent = "Sign in with device code"
 }
 
 async function pollDevice() {
@@ -92,37 +98,35 @@ async function pollDevice() {
     return
   }
   if (status.state === "complete") {
-    const email = status.account && status.account.email
-    byId("device-status").textContent = email ? `Signed in as ${email}. Credential saved.` : "Signed in. Credential saved."
-    byId("device-start").disabled = true
-    byId("device-start").textContent = "Signed in"
+    const email = status.account?.email
+    deviceStatus.textContent = email ? `Signed in as ${email}. Credential saved.` : "Signed in. Credential saved."
+    deviceStart.disabled = true
+    deviceStart.textContent = "Signed in"
     file.required = false
     file.disabled = true
     byId("file-name").textContent = "Signed in with device code"
   }
 }
 
-byId("device-start").addEventListener("click", async () => {
+deviceStart.addEventListener("click", async () => {
   bootstrapToken = token.value || bootstrapToken
   if (!bootstrapToken) return deviceFailure(new Error("setup token is required"))
   sessionStorage.setItem(storageKey, bootstrapToken)
-  byId("device-error").hidden = true
-  const start = byId("device-start")
-  start.disabled = true
-  start.textContent = "Requesting code…"
+  deviceError.hidden = true
+  deviceStart.disabled = true
+  deviceStart.textContent = "Requesting code…"
   try {
     const body = await decode(await fetch("/bootstrap/api/device", {
       method: "POST",
       cache: "no-store",
       headers: { "x-runeshop-bootstrap": bootstrapToken }
     }))
-    const url = byId("device-url")
-    url.textContent = body.verification_url
-    url.href = body.verification_url
-    byId("device-code").textContent = body.user_code
-    byId("device-status").textContent = "Waiting for authorization…"
-    byId("device-panel").hidden = false
-    start.textContent = "Waiting for sign-in…"
+    deviceUrl.textContent = body.verification_url
+    deviceUrl.href = body.verification_url
+    deviceCode.textContent = body.user_code
+    deviceStatus.textContent = "Waiting for authorization…"
+    devicePanel.hidden = false
+    deviceStart.textContent = "Waiting for sign-in…"
     void pollDevice()
   } catch (cause) {
     deviceFailure(cause)

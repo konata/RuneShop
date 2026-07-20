@@ -49,6 +49,21 @@ async function credentialForm(context: Context) {
   return form;
 }
 
+function mountDevice(app: Hono, path: string, device: DeviceLogin, authorize: (context: Context) => Response | null, read?: (context: Context) => Response | null) {
+  app.post(path, async (context) => {
+    const rejection = authorize(context);
+    if (rejection) return rejection;
+    try { return json(await device.start(), 202); }
+    catch (cause) { return failure((cause as Error).message, 502); }
+  });
+  app.get(path, (context) => read?.(context) ?? json(device.status()));
+  app.post(`${path}/cancel`, (context) => {
+    const rejection = authorize(context);
+    if (rejection) return rejection;
+    return json(device.cancel());
+  });
+}
+
 type AdminSession = { csrf: string; expires: number };
 export class AdminSessions {
   readonly duration = 30 * 24 * 60 * 60;
@@ -88,7 +103,7 @@ function sessionReply(context: Context) {
 export function mountAdmin(app: Hono, config: Config, state: RequestState, access: AccessControl) {
   const account = new AccountClient(config);
   const updater = new Updater(config);
-  const device = new DeviceLogin(config.authFile, { settled: () => account.invalidate() });
+  const device = new DeviceLogin(config.authFile, () => account.invalidate());
   const sessions = new AdminSessions(config.adminPasswordHash);
   const active = (context: Context) => sessions.find(getCookie(context, cookie));
   const confirmed = (context: Context) => active(context)?.csrf === context.req.header("x-csrf-token");
@@ -186,16 +201,7 @@ export function mountAdmin(app: Hono, config: Config, state: RequestState, acces
     emit("info", "admin_credentials_imported", { refreshable: credentials.refreshable, expires_at: credentials.expires_at });
     return json(credentials);
   });
-  app.post("/admin/api/credentials/device", async (context) => {
-    if (!confirmed(context)) return failure("invalid confirmation token", 403);
-    try { return json(await device.start(), 202); }
-    catch (cause) { return failure((cause as Error).message, 409); }
-  });
-  app.get("/admin/api/credentials/device", () => json(device.status()));
-  app.post("/admin/api/credentials/device/cancel", (context) => {
-    if (!confirmed(context)) return failure("invalid confirmation token", 403);
-    return json(device.cancel());
-  });
+  mountDevice(app, "/admin/api/credentials/device", device, (context) => confirmed(context) ? null : failure("invalid confirmation token", 403));
   app.get("/admin/api/update", async () => json(await updater.status(true)));
   app.post("/admin/api/update", async (context) => {
     if (!confirmed(context)) return failure("invalid confirmation token", 403);
@@ -230,22 +236,9 @@ export function mountBootstrap(app: Hono, config: Config, secret = randomBytes(3
   app.get("/bootstrap", () => asset("bootstrap.html", "no-store"));
   app.get("/bootstrap/api/status", async () => json({ configured: await Bun.file(config.configFile).exists(), ...serviceStatus() }));
 
-  app.post("/bootstrap/api/device", async (context) => {
-    const rejection = denied(context.req.header("x-runeshop-bootstrap"));
-    if (rejection) return rejection;
-    try { return json(await device.start(), 202); }
-    catch (cause) { return failure((cause as Error).message, 409); }
-  });
-  app.get("/bootstrap/api/device", (context) => {
-    const rejection = denied(context.req.header("x-runeshop-bootstrap"));
-    if (rejection) return rejection;
-    return json(device.status());
-  });
-  app.post("/bootstrap/api/device/cancel", (context) => {
-    const rejection = denied(context.req.header("x-runeshop-bootstrap"));
-    if (rejection) return rejection;
-    return json(device.cancel());
-  });
+  mountDevice(app, "/bootstrap/api/device", device,
+    (context) => denied(context.req.header("x-runeshop-bootstrap")),
+    (context) => denied(context.req.header("x-runeshop-bootstrap")));
 
   app.post("/bootstrap/api/setup", async (context) => {
     const rejection = denied(context.req.header("x-runeshop-bootstrap"));

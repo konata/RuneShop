@@ -325,22 +325,22 @@ let deviceTimer
 
 async function pollDevice() {
   clearTimeout(deviceTimer)
-  let state
+  let snapshot
   try {
-    state = await request("/admin/api/credentials/device")
+    snapshot = await request("/admin/api/credentials/device")
   } catch (error) {
     ui["device-progress"].textContent = error.message
     return
   }
-  if (state.state === "pending") {
+  if (snapshot.state === "pending") {
     deviceTimer = setTimeout(pollDevice, 2500)
     return
   }
-  if (state.state === "failed") {
-    ui["device-progress"].textContent = state.error || "Device sign-in failed"
+  if (snapshot.state === "failed") {
+    ui["device-progress"].textContent = snapshot.error || "Device sign-in failed"
     return
   }
-  if (state.state === "complete") {
+  if (snapshot.state === "complete") {
     ui["device-dialog"].close()
     credentials(await request("/admin/api/credentials"))
     usage(await request("/admin/api/account?refresh=1"))
