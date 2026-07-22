@@ -1,10 +1,10 @@
 :root {
   color-scheme: light;
-  --page: oklch(0.95 0.006 106);
-  --surface: oklch(0.995 0.002 106);
+  --page: oklch(0.955 0.007 106);
+  --surface: oklch(0.998 0.002 106);
   --ink: oklch(0.2 0.006 106);
   --muted: oklch(0.55 0.006 106);
-  --line: oklch(0.9 0.004 106);
+  --line: oklch(0.91 0.004 106);
   --dark: oklch(0.24 0.006 106);
   --dark-raised: color-mix(in oklch, oklch(0.98 0.004 106) 8%, var(--dark));
   --green: oklch(0.6 0.13 150);
@@ -12,6 +12,9 @@
   --amber: oklch(0.65 0.14 70);
   --red: oklch(0.58 0.2 25);
   --radius: 16px;
+  --shadow-sm: 0 1px 2px oklch(0.2 0.006 106 / 4%), 0 2px 8px oklch(0.2 0.006 106 / 3%);
+  --shadow-md: 0 4px 20px oklch(0.2 0.006 106 / 8%), 0 1px 4px oklch(0.2 0.006 106 / 5%);
+  --shadow-lg: 0 24px 70px oklch(0.2 0.006 106 / 22%), 0 4px 16px oklch(0.2 0.006 106 / 8%);
   --mono: "JetBrains Mono", ui-monospace, monospace;
   --sans: "Inter", ui-sans-serif, system-ui, sans-serif;
 }
@@ -28,7 +31,7 @@ dialog:focus-visible {
 }
 
 .muted { color: var(--muted); }
-.eyebrow { display: block; color: var(--muted); font-size: 12px; font-weight: 500; letter-spacing: 0; line-height: 16px; text-transform: uppercase; }
+.eyebrow { display: block; color: var(--muted); font-size: 11px; font-weight: 600; letter-spacing: .09em; line-height: 16px; text-transform: uppercase; }
 .eyebrow.inverse { color: color-mix(in oklch, white 55%, transparent); }
 
 .masthead {
@@ -36,8 +39,8 @@ dialog:focus-visible {
   top: 0;
   z-index: 10;
   border-bottom: 1px solid var(--line);
-  background: color-mix(in srgb, var(--page), transparent 10%);
-  backdrop-filter: blur(14px);
+  background: color-mix(in srgb, var(--page), transparent 18%);
+  backdrop-filter: blur(16px) saturate(1.5);
 }
 
 .masthead-inner,
@@ -76,7 +79,8 @@ dialog:focus-visible {
   flex: 0 0 auto;
   place-items: center;
   border-radius: 12px;
-  background: var(--dark);
+  background: linear-gradient(150deg, oklch(0.34 0.008 106), var(--dark));
+  box-shadow: 0 1px 3px oklch(0.2 0.006 106 / 25%), inset 0 1px 0 oklch(1 0 0 / 10%);
   color: #fff;
   font-size: 14px;
   font-weight: 700;
@@ -108,7 +112,7 @@ dialog:focus-visible {
 
 .shell { padding: 24px 16px 40px; }
 .page-heading { margin-bottom: 24px; }
-.page-heading h1 { margin: 0; font-size: 24px; font-weight: 600; line-height: 1.2; }
+.page-heading h1 { margin: 0; font-size: 24px; font-weight: 600; letter-spacing: -.02em; line-height: 1.2; }
 .page-heading p { margin: 4px 0 0; color: var(--muted); }
 
 .dashboard-grid {
@@ -121,27 +125,34 @@ dialog:focus-visible {
 .card { border-radius: var(--radius); }
 
 .usage-panel {
+  position: relative;
   min-height: 308px;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
+  overflow: hidden;
   padding: 24px;
-  background: var(--dark);
+  background:
+    radial-gradient(120% 90% at 85% -10%, oklch(0.38 0.03 150 / 55%) 0%, transparent 55%),
+    radial-gradient(90% 70% at 0% 110%, oklch(0.32 0.02 106 / 60%) 0%, transparent 60%),
+    linear-gradient(155deg, oklch(0.3 0.008 106) 0%, oklch(0.21 0.006 106) 70%);
+  box-shadow: var(--shadow-md);
   color: #fff;
 }
 
 .usage-heading {
+  position: relative;
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 20px;
 }
 
-.usage-value { margin: 16px 0 0; font-size: 48px; font-weight: 600; line-height: 1; }
+.usage-value { margin: 16px 0 0; font-size: 48px; font-weight: 650; letter-spacing: -.02em; line-height: 1; }
 .usage-caption { margin: 8px 0 0; color: #a9aca5; }
-.plan { padding: 4px 12px; background: color-mix(in oklch, white 10%, transparent); color: #eceee9; font-size: 14px; font-weight: 500; text-transform: uppercase; }
-.progress { height: 8px; overflow: hidden; border-radius: 999px; background: #454642; }
-.progress span { display: block; width: 0; height: 100%; border-radius: inherit; background: var(--green); transition: width 240ms ease; }
+.plan { padding: 4px 12px; background: color-mix(in oklch, white 12%, transparent); color: #eceee9; font-size: 12px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; }
+.progress { height: 8px; overflow: hidden; border-radius: 999px; background: oklch(1 0 0 / 16%); }
+.progress span { display: block; width: 0; height: 100%; border-radius: inherit; background: linear-gradient(90deg, oklch(0.68 0.15 150), oklch(0.78 0.16 145)); box-shadow: 0 0 12px oklch(0.7 0.15 150 / 55%); transition: width 240ms ease; }
 
 .usage-facts {
   display: grid;
@@ -155,7 +166,7 @@ dialog:focus-visible {
 .usage-facts dd { margin: 6px 0 0; overflow-wrap: anywhere; font-size: 18px; font-weight: 600; }
 
 .side-stack { display: flex; flex-direction: column; gap: 20px; }
-.card { border: 1px solid var(--line); background: var(--surface); }
+.card { border: 1px solid var(--line); background: var(--surface); box-shadow: var(--shadow-sm); }
 .status-card,
 .update-card { padding: 20px; }
 .stats { display: grid; gap: 12px; margin: 16px 0 0; }
@@ -169,7 +180,7 @@ dialog:focus-visible {
 .update-card { display: flex; flex: 1; flex-direction: column; justify-content: space-between; }
 .card-heading,
 .section-heading { justify-content: space-between; gap: 16px; }
-.badge { padding: 2px 10px; background: var(--green-soft); color: #246f3d; font-size: 12px; font-weight: 500; line-height: 16px; }
+.badge { padding: 2px 10px; background: var(--green-soft); color: #246f3d; font-size: 12px; font-weight: 600; line-height: 16px; }
 .badge.warning { background: #fbefd9; color: #8c5c0d; }
 .badge.error { background: #fbe2e4; color: #a32931; }
 .update-summary { margin: 12px 0 0; font-weight: 500; line-height: 20px; }
@@ -177,9 +188,9 @@ dialog:focus-visible {
 
 .primary-button,
 .quiet-button {
-  border-radius: 8px;
+  border-radius: 10px;
   cursor: pointer;
-  transition: background 140ms ease, color 140ms ease, transform 100ms ease;
+  transition: background 140ms ease, color 140ms ease, border-color 140ms ease, box-shadow 140ms ease, transform 100ms ease;
 }
 
 .primary-button {
@@ -190,7 +201,8 @@ dialog:focus-visible {
   justify-content: center;
   gap: 6px;
   border: 1px solid var(--dark);
-  background: var(--dark);
+  background: linear-gradient(180deg, oklch(0.3 0.007 106), var(--dark));
+  box-shadow: 0 1px 2px oklch(0.2 0.006 106 / 18%), inset 0 1px 0 oklch(1 0 0 / 8%);
   color: #fff;
   padding: 0 10px;
   font-weight: 600;
@@ -200,7 +212,7 @@ dialog:focus-visible {
 .primary-button svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 2; }
 
 .update-card .primary-button { width: 100%; margin-top: 20px; }
-.primary-button:hover:not(:disabled) { background: #353633; }
+.primary-button:hover:not(:disabled) { background: linear-gradient(180deg, oklch(0.34 0.008 106), oklch(0.27 0.007 106)); box-shadow: 0 3px 10px oklch(0.2 0.006 106 / 22%), inset 0 1px 0 oklch(1 0 0 / 8%); transform: translateY(-1px); }
 .primary-button:active:not(:disabled), .quiet-button:active:not(:disabled) { transform: translateY(1px); }
 .primary-button:disabled { cursor: not-allowed; opacity: .48; }
 
@@ -214,7 +226,7 @@ dialog:focus-visible {
   font-weight: 600;
 }
 
-.quiet-button:hover:not(:disabled) { background: #e9ebe6; }
+.quiet-button:hover:not(:disabled) { border-color: oklch(0.82 0.005 106); background: #edeee9; box-shadow: var(--shadow-sm); }
 .quiet-button:disabled { cursor: not-allowed; opacity: .48; }
 .masthead-link { display: inline-flex; align-items: center; text-decoration: none; }
 .activity-card,
@@ -331,10 +343,11 @@ dialog:focus-visible {
   width: 100%;
   height: 44px;
   border: 1px solid #cfd1cb;
-  border-radius: 8px;
+  border-radius: 10px;
   background: var(--surface);
   color: var(--ink);
   padding: 0 12px;
+  transition: border-color 140ms ease, box-shadow 140ms ease;
 }
 
 .login-form input:focus { border-color: var(--green); outline: 3px solid color-mix(in srgb, var(--green), transparent 76%); }
@@ -344,22 +357,23 @@ dialog:focus-visible {
 .dialog {
   width: min(480px, calc(100% - 32px));
   border: 1px solid var(--line);
-  border-radius: 16px;
+  border-radius: 20px;
   background: var(--surface);
   color: var(--ink);
   padding: 24px;
-  box-shadow: 0 18px 60px rgb(0 0 0 / 22%);
+  box-shadow: var(--shadow-lg);
 }
 
-.dialog::backdrop { background: rgb(25 26 23 / 34%); backdrop-filter: blur(5px); }
-.dialog h2 { margin: 0; font-size: 18px; }
+.dialog[open] { animation: dialog-in 180ms cubic-bezier(.2, .8, .3, 1); }
+.dialog::backdrop { background: rgb(25 26 23 / 38%); backdrop-filter: blur(6px); }
+.dialog h2 { margin: 0; font-size: 18px; letter-spacing: -.01em; }
 .dialog p { margin: 9px 0 0; }
 .commits { max-height: 180px; overflow-y: auto; margin: 18px 0 0; padding: 0; list-style: none; }
 .commits li { display: grid; grid-template-columns: 62px minmax(0, 1fr); gap: 10px; border-top: 1px solid var(--line); padding: 8px 0; font-size: 12px; }
 .commits .mono { color: var(--muted); }
 .update-progress { border-radius: 6px; background: var(--green-soft); padding: 9px 11px; color: #246f3d; }
 .dialog-actions { justify-content: flex-end; gap: 8px; margin-top: 22px; }
-.toast { position: fixed; right: 18px; bottom: 18px; z-index: 30; max-width: min(380px, calc(100% - 36px)); border-radius: 8px; background: var(--dark); color: #fff; padding: 10px 13px; box-shadow: 0 8px 24px rgb(0 0 0 / 18%); }
+.toast { position: fixed; right: 18px; bottom: 18px; z-index: 30; max-width: min(380px, calc(100% - 36px)); border-radius: 10px; background: var(--dark); color: #fff; padding: 10px 13px; box-shadow: var(--shadow-md); animation: toast-in 220ms cubic-bezier(.2, .8, .3, 1); }
 
 @media (min-width: 640px) {
   .masthead-inner { padding-inline: 24px; }
@@ -396,10 +410,22 @@ dialog:focus-visible {
 }
 
 @keyframes ping { 75%, 100% { opacity: 0; transform: scale(2); } }
+@keyframes dialog-in { from { opacity: 0; transform: translateY(10px) scale(.97); } }
+@keyframes toast-in { from { opacity: 0; transform: translateY(8px); } }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; animation: none !important; }
 }
 
-.device-code { margin: 14px 0 0; font-size: 24px; font-weight: 650; letter-spacing: .12em; }
+.device-code {
+  margin: 14px 0 0;
+  border: 1px dashed oklch(0.8 0.005 106);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--surface), var(--page) 55%);
+  padding: 14px;
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: .16em;
+  text-align: center;
+}
 .dialog a { color: inherit; }
